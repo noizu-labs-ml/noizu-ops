@@ -1,9 +1,30 @@
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Command
+import yaml
+import os
+
+
+class RunSystemInfo(Command):
+    description = "Run init script: Gather System Details to Help AI Helper"
+    user_options = []
+
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        from setup import noizu_help_init
+        si = noizu_help_init.system_info()
+        noizu_help_init.update_config(si)
 
 setup(
     name="noizu-help",
     version="0.1.0",
     packages=find_packages(),
+    cmdclass={
+     'run_system_info': RunSystemInfo,
+    },
     install_requires=[
         "openai",
     ],
