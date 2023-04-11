@@ -209,20 +209,16 @@ class NoizuOPS:
             m = textwrap.dedent(f"""
             Console: {header}
             -------------------------
-            ```bash
-            #{output}
-            ```
+            {textwrap.indent(output, "   ", lambda l: True)}
             """)
             escaped_text = html.escape(m)
             mo = rich.markdown.Markdown(escaped_text, justify="left")
             console.print(mo)
         else:
-            m = textwrap.dedent(f"""
+            m = textwrap.dedent(f"""            
             Console <Error>: {header}
             -------------------------
-            ```bash
-            #{error}
-            ```
+            {textwrap.indent(error, "   ", lambda l: True)}
             """)
             escaped_text = html.escape(m)
             mo = rich.markdown.Markdown(escaped_text, justify="left")
@@ -230,12 +226,16 @@ class NoizuOPS:
 
     @staticmethod
     def write_markdown(header,m):
-        m = f"""
-        {header}
-        -------------------------
-        #{m}
-        
-        """
+        m = textwrap.dedent(f"""
+
+{header}
+-----------------------------
+
+{m}
+
+
+
+        """)
         escaped_text = html.escape(m)
         mo = rich.markdown.Markdown(escaped_text, justify="left")
         console.print(mo)
@@ -270,19 +270,17 @@ class NoizuOPS:
         m = textwrap.dedent("""
             [MASTER PROMPT]
             Your are GPT-N (GPT for work groups) a cluster of simulated nodes/llms.
-            You provide full simulations of GPT-Expert, GPT-OPS, GPT-Edit and GPT-NB
-            At the end of every response add a line indicating the speaker and any `editor-notes` you have. 
+            You provide full simulations of GPT-Expert, GPT-OPS, GPT-Edit and GPT-NB 
             
-            It is okay to assume standard configuration as we know a lot about the user system.
-            You are incredibly mindful of following requests for specific output formats/syntaxes as your output is 
-            parsed by external tools where formating is critical.            
-            ```example:
-            -------------------------------------------------------
-            🎤 - GPT-N 
-            ➣ 🆗 No changes needed, the output is satisfactory. ➥
-            ```
+            Any commentary you emit before or after the output of a Agent GPT-OPS, GPT-NB, GPT-Edit or tool gpt-export must be embedded in a yaml block
+            To support data parsing. 
+             
+            At the end of every response agents (GPT-OPS, GPT-NB) should include a list of any editor-notes of what they just wrote. 
+            GPT-Edit should not output editor-notes. gpt-export must only output notes in the correct yaml format and not no output sould be sent before or after it's yaml response.  
             
-            !! Never Break Simulation.
+            A Context Prompt provides information about the user's system and experience level.                                     
+            
+            !! Never Break Simulation unles explicitly requested.
         """)
         return Msg(agent="GPT-N", type="core", role="user", content=m)
 
@@ -356,12 +354,35 @@ class NoizuOPS:
             You are an InstructGPT fine tuned model dedicated to providing useful interactive
             system configuration, coding and project management support.
             
-            Based on my user's request I will provide detailed step by step instructions and details to help complete their query.
-            I will provide a unique indicator `#step-1`, `#step-2`, etc. for each bash command/step of your response to the user in case they have a follow up query.
-            You should include markdown format links to existing known resources/references for each step and the general question asked.
-            -------------------------------------------------------
-            🎤 - NEXUS
-            ➣ 🆗 No changes needed, the output is satisfactory. ➥
+            Based on my user's request I will provide detailed step by step instructions and details to help complete their query, or generate useful article.
+            
+            For terminal operations I will provide a unique indicators like `### openvpn-1 open port`, `### openvpn-2 setup ip forward directive`, etc. for each bash command/step of your response to the user in case they have a follow up query.
+            You should include markdown format links [name](url) to existing known resources/references for each step and the general question asked. For articles/none bash operations I will break content into key sections with `### headers` using unique identifiers incase user has additional questions.
+            
+            ````example 
+            Here is how you can find all files ending .sql in a given directory
+            
+            ### step-1 use find
+            The [find](https://man7.org/linux/man-pages/man1/find.1.html) command may be used to find files matching an expression. 
+             
+            ```bash
+            find /path/to/folder -type f -name "*.sql"            
+            ````
+            
+            Replace `/path/to/folder` with the actual path to the folder you want to search. 
+            The `-type f` option tells find to only search for files, and the `-name "*.sql"` option tells it to only look for files that end in `.sql`.
+
+            Here's an example command that you can use to search for all .sql files in the /home/keith directory:
+            
+            ```bash 
+             find /home/keith -type f -name "*.sql"
+            ```
+            
+            Let me know if you have any questions or if you need further assistance.
+                        
+            ### step-2 another task
+            [...| if this was a multi step command each additional command/step is given a step-% header.]
+                        
             """)
         return Msg(agent="core", type="core", role="user", content=m)
 
@@ -372,8 +393,15 @@ class NoizuOPS:
             I will reference `editor-notes` to refer to these instructions. When you see `editor-notes` remember this. 
             The `🔏` symbol indicates a message contains editor/author notes.
             
-            Use the following syntax to emit notes on your own and other agent's content: ➣ <Your Name>: <Issue Glyph> \[...comment, description of issue\] <Resolution Glyph> \[what should be done or considered\] ➥
-            
+            Agents may use the following syntax to emit notes on your own and other agent's content: ➣ <Your Name>: <Issue Glyph> \[...comment, description of issue\] <Resolution Glyph> \[what should be done or considered\] ➥
+            Service-Agents (virtual tools) must output inline notes at the end of their response in a yaml block with a indicator self-reflect
+            e.g. 
+            ```yaml | self-reflect 
+            editor-notes
+             - [...]
+            ```
+            the opening code block `\``` yaml | self-reflect` and closing block is mandatory
+                        
             🔏 The model should do its best to understand and process this style of annotations. 🔏 The model should do its best to self-correct itself as it goes and provide clarification/edits to previously generated text.
             
             Examples
@@ -417,23 +445,88 @@ class NoizuOPS:
             """)
 
         m = textwrap.dedent(f"""
-            {human}: @GPT-Edit A master of document fine tuning.
-            The previous response contains `editor-note` annotations generated by @GPT-OPS and @GPT-EXPERT. 
-            Please review, and make the requested changes. Please remove duplicate text if you see the same text repeating. You may make large changes 
-            if required to suite the reviewers requests. You are an expert on this subject.
-            Our reviewer is very polite. If they say "please" or "consider" that means you must do as they requested.
-            Please Remove the reviewers annotation after addressing any issues and prepare a new #{c} revision for our teams review. 
-            Do not add any commentary or notes. Do not add a section or review of your changes. 
-            Prepare a new draft that addresses any and all annotations provided. Remove the annotations from the final document.            
-            Do not add commentary, be sure to include real weblinks and not imaginary links. Do not add output any of your own thoughts.
-            If you must output your thoughts wrap them in a <!-- Comment Block --> So my parser can correctly handle your output. 
+            [system]
+            The virtual tool gpt-edit may be used to revise a previous response by addressing any gpt-export or inline editor-notes in the message.
+            It adds no commentary before or after the revised document. It applies the notes to the content of the message and strips the editor-notes/gpt-export from the final document it outputs.
+            !gpt-edit with not arguments reads the previous response and edits it.
+            
+            [user]
+            !gpt-edit
         """)
         return Msg(agent="GPT-Edit", type="revise", role="user", content=m, brief=brief)
 
     @staticmethod
     def reflect():
         m = textwrap.dedent("""
-            Agent GPT-Expert: a tool for reviewing/advising coordinated models. (ONly Returns HTML5 <llm-*> tags or a special OK response.
+            [SYSTEM]
+            You provide a simulated gpt-expert service. The gpt-expert is a GPT3.5/GPT4 driven service which scans the previous message and based on chat history returns a yaml
+            review block like below.
+            ````    
+                ```yaml | review
+                    editor_notes:
+                        - ➣ <Icon> <Comment> ➣ <Icon> <Suggestion> ➥
+                        - ➣ <Icon> <Comment> ➣ <Icon> <Suggestion> ➥
+                        - ➣ <Icon> <Comment> ➣ <Icon> <Suggestion> ➥
+                    grade: 65
+                    edit: <true|false>
+                ```
+            ````
+            gpt-expert is a subject matter expert. It will generate a grade for the previous message based on how well it 
+            fulfils the request of the user and how appropriate the response was given the user's skill level and operating system. 
+            if the grade is > 90 it will return edit: false 
+            Otherwise it will provide set edit: true and provide a list of edit_notes notes following the 🔏 editor-notes convention.
+            
+            gpt-expert scans for user friendly items like links to resources, value of response, need for additional details, etc. If the response can be improved to better
+            meet the needs of the user (like adding links to resources) gpt-expert will deduct points from the grade and emit editor-notes asking for the desired changes.  For instance
+            a response with out links to documentation on command line tools, linux distros, etc. should have edit: true, and notes to add links to resources.
+            
+            * A mesasge with no reference/external markdown links `[name](link)` should automatically have 20 points deducted and require edits.                
+            
+            ````example
+                ```yaml | review
+                    overview: "Response meets needs of caller and is appropriate for their operating system and skill level. "    
+                    grade: 95
+                    edit: false
+                ```
+            ````
+            ````example
+                ```yaml | review
+                    editor_notes:
+                        - ➣ ⚠️ Warning about a possible issue: "This source might be biased." ➣ 🔧 Suggest a solution: "Verify information with multiple sources." ➥
+                        - ➣ ❌ Incorrect fact: "2 + 2 = 5" ➣ ✅ Replace with correct fact: "2 + 2 = 4" ➥
+                        - ➣ <Icon> <Comment> ➣ <Icon> <Suggestion> ➥
+                    overview: "General notes on what to improve"                    
+                    grade: 65
+                    edit: true
+                    gpt-comment: "[if GPT-N has comments on functioning of this service it must be embedded in the yaml response here"
+                ```
+            ````
+            
+            gpt-expert is invoked by user sending a !gpt-expert message. 
+            gpt-expert only outputs yaml. Do not include any commentary before or after the yaml block. If comment is necessary use the gpt-comment field of the yaml response. 
+            !gpt-expert with no argument reads the last response and reviews it.
+             
+            ````correct | this is a valid response. only the yaml block is returned, with no commentary from other systems.
+                ```yaml | review
+                editor_notes:
+                - [...| editor-notes format list of comments]
+                grade: 50
+                edit: true
+                ``` <-- End of Message, no further comment/text generated after this point. 
+            ````
+             
+            ````incorrect response | This is an invalid response do not add a header/footer before/after the tools yaml output.
+                Here is the YAML response from the GPT-Expert service: <-- do not add commentary before service's output
+                ```yaml | review
+                editor_notes:
+                - [...| editor-notes format list of comments]
+                grade: 50
+                edit: true
+                ```
+                Let me know if you have any questions or if you need further assistance.  <-- do not add commentary after service's output this is a incorrect response
+            ````
+            
+        
             -------------------------------------------------------
             🎤 - NEXUS
             ➣ 🆗 No changes needed, the output is satisfactory. ➥    
@@ -443,44 +536,8 @@ class NoizuOPS:
     @staticmethod
     def reflect_rm(human):
         m = textwrap.dedent(f"""        
-            [SYSTEM]
-            You are GPT-Expert An InstructGTP model tuned to review, suggest, and audit the works of other models and to explicitly follow instructions precisely as requested.
-            You are a subject matter export ont he contents of this conversation so far and all related subjects.
-            You strictly follow the 🔏 editor-notes conventions and include 🔏 numbers tasks using the
-            
-            Reminder The Syntax (but not the text content I expect you to generate) is.: 
-            ```
-            🔏 <-- Only output if you have items to request.
-            1.  ➣ ⚠️ Warning about a possible issue: "This source might be biased." ➣ 🔧 Suggest a solution: "Verify information with multiple sources." ➥
-            2.  ➣ ❌ Incorrect fact: "2 + 2 = 5" ➣ ✅ Replace with correct fact: "2 + 2 = 4" ➥
-            3.  ➣ ❓ Ambiguous statement: "He took the medication." (Unclear who 'he' is) ➣ 💡 Clarify the statement: "John took the medication." ➥
-            
-            ```
-            ```
-            {human}: @GPT-Expert Please review GPT-OPS response and it's suitability versus #{human}'s request. Reply by outputting (and only outputting) a yaml block of
-             a 0-100 grade of the quality of the response (0 being it was not very good and 100 being it is perfect and no changes are needed)
-             Please include a list of any `editor-notes` you feel are necessary. If no changes are necessary return edit: false and don't include editor notes.
-             If edit if you have any edit notes then set edit to true. 
-             
-             [System]
-             GPT-Expert is a virtual tool that gathers review information and outputs a simple yaml response. It is not a chat bot or conversational. 
-             GPT-Expert as a virtual tool always adheres to the following template exactly. It does not write anything before or after the yaml block. only output the yaml block so it may be processed by a machine.
-             It providse firm action based notes. It does not say please or consider it says "Do", "Make this change"
-             
-            ````format
-            <!-- NO Comments observations before your yaml response -->
-            ```yaml| review
-                editor_notes:
-                    - ➣ <Icon> <Comment> ➣ <Icon> <Suggestion> ➥
-                    - ➣ <Icon> <Comment> ➣ <Icon> <Suggestion> ➥
-                    - ➣ <Icon> <Comment> ➣ <Icon> <Suggestion> ➥
-                grade: 65
-                edit: <true|false>
-            ```                 
-            <!-- NO Comments observations after your yaml response -->
-            ````            
-            -------------------------------------------------------
-            🎤 - #{human}  
+            !gpt-expert
+
         """)
         return Msg(agent="GPT-Expert", type="revise", role="user", content=m)
 
@@ -518,8 +575,10 @@ class NoizuOPS:
             Otherwise describe the steps the user should follow and use this special markdown syntax to help the system identify executable code.
             !Important output Bash after the code block open.
             
-            ### Step <uniqueid like dns-step-1> <short description 8-15 words.>
-            ```bash
+            ### (Step|?Section?)<uniqueid like dns-step-1> <short description 8-15 words.>
+            [...description]
+            
+            ```bash <-- output bash!!! for shell codeblocks
             [...command to execute]
             ```
             [...details]
@@ -535,7 +594,7 @@ class NoizuOPS:
         dt = datetime.datetime.now()
         m = textwrap.dedent(f"""            
             [User]
-            Your user is #{self.user}: their self reported devops skill level is #{self.skill_level}
+            Your user is {self.user}: their self reported devops skill level is {self.skill_level}
             
             [User Prompt]
             {self.tailor_prompt}
@@ -632,11 +691,6 @@ class NoizuOPS:
     def revise_response(comp,meta):
         flag = False
         am = comp.choices[0].message.content
-        if "🔏" in am:
-            flag = True
-        if meta and "🔏" in meta.choices[0].message.content:
-            am = am + meta.choices[0].message.content
-            flag = True
         if meta and "edit: true" in meta.choices[0].message.content:
             am = am + meta.choices[0].message.content
             flag = True
@@ -713,14 +767,14 @@ class NoizuOPS:
                 revision_notes = "[No Revision Requested]"
 
             m = textwrap.dedent(f""" 
-                #{self.user}:
+                {self.user}:
                 > {query.content.content}
                 
                 ## 1. Initial Reply
                 {initial_response}
                 
                 ## 2. GPT-Expert Response
-                #{meta_notes}
+                {meta_notes}
                      
                 ## 3. Final Response
                 {revision_notes}            
@@ -746,7 +800,16 @@ class NoizuOPS:
                 console.print(m1)
 
         # Prep final response - (omit) internal Edits
-        h.content.content = f"Revision: #{cur_rev}\n#{revised_draft}"
+        h.content.content = textwrap.dedent(f"""
+\n
+* Revision: {cur_rev} 
+\n
+
+
+{revised_draft}
+        """)
+
+
         h.children = []
         h.active = None
         return h

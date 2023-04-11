@@ -1,7 +1,9 @@
 logs
 .idea
 noizu_help.egg-info/
-.envrc
+#.envrc
+.envrc.secret
+.envrc.*
 *.gz
 dist/
 config/
