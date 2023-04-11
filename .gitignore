@@ -4,6 +4,7 @@ noizu_help.egg-info/
 #.envrc
 .envrc.secret
 .envrc.*
+.direnv/
 *.gz
 dist/
 config/
