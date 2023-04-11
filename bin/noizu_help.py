@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import sys
+import re
 import textwrap
 import subprocess
 import datetime
@@ -14,6 +15,7 @@ import difflib
 from rich.console import Console
 from rich.prompt import Prompt
 from rich.text import Text
+from rich.status import Status
 from rich.style import Style
 from getpass import getpass
 from pathlib import Path
@@ -26,11 +28,13 @@ Setup Environment
 """
 console = rich.console.Console()
 
+response_file = None
+
 """
 Represent Chat Message
 """
 class Msg:
-    def __init__(self, agent, type, role, content, target = None, brief = None, options = None):
+    def __init__(self, agent, type, role, content, target = None, brief = None, options = None, prefix = None):
         self.agent = agent
         self.type = type
         self.role = role
@@ -38,6 +42,7 @@ class Msg:
         self.brief = brief
         self.content = content
         self.options = options
+        self.prefix = prefix
 
     def digest(self, path, target, session, pending_head = False):
         if self.agent == target or self.type == "human" or pending_head:
@@ -46,8 +51,22 @@ class Msg:
             em = self.brief
         else:
             em = self.content
+        """
         pp = ".".join([str(i) for i in path])
-        em + f"\n➥ msg: {pp}"
+        em = em + f"\n➥ msg: {pp}"
+        """
+
+        if self.prefix:
+            em = self.prefix + em
+        else:
+            """
+            add source if not already present.
+            """
+            if self.role == 'assistant':
+                sender = f"{self.agent}:\n"
+                if not em.lstrip().startswith(sender):
+                    em = sender + em
+
         return {"role": self.role, "content": em}
 
     def __str__(self):
@@ -135,6 +154,15 @@ class ConversationNode:
         node.add_child(m)
         return m
 
+    def quick_append(self, content, prefix=None, type="query", role="user", agent="GPT-N"):
+        node = self
+        while node.active is not None:
+            node = node.children[node.active]
+
+        nn = ConversationNode(Msg(agent=agent, prefix=prefix, type=type, role=role, content=content))
+        node.add_child(nn)
+        return nn
+
     def active_chat(self):
         node = self
         p = [(node.path, node.content)]
@@ -188,6 +216,9 @@ class NoizuOPS:
 
     def __init__(self, session, config, mode = None, nb = False, interactive = False, verbose = False):
         self.chat_tree = None
+        self.revise_tree = None
+        self.edit_tree = None
+        self.session_tree = None
         self.session = session
         self.verbose = verbose
         self.config = config
@@ -211,7 +242,11 @@ class NoizuOPS:
             -------------------------
             {textwrap.indent(output, "   ", lambda l: True)}
             """)
+
+            """
             escaped_text = html.escape(m)
+            """
+            escaped_text = m
             mo = rich.markdown.Markdown(escaped_text, justify="left")
             console.print(mo)
         else:
@@ -220,12 +255,16 @@ class NoizuOPS:
             -------------------------
             {textwrap.indent(error, "   ", lambda l: True)}
             """)
-            escaped_text = html.escape(m)
+
+            """
+                        escaped_text = html.escape(m)
+            """
+            escaped_text = m
             mo = rich.markdown.Markdown(escaped_text, justify="left")
             console.print(mo, style=Style(color="magenta"))
 
     @staticmethod
-    def write_markdown(header,m):
+    def write_markdown(header,m, record = False, output = True):
         m = textwrap.dedent(f"""
 
 {header}
@@ -236,27 +275,217 @@ class NoizuOPS:
 
 
         """)
-        escaped_text = html.escape(m)
-        mo = rich.markdown.Markdown(escaped_text, justify="left")
-        console.print(mo)
+
+        if record and response_file:
+            with open(response_file, 'a') as f:
+                f.write(m)
+
+        if output:
+            """
+            escaped_text = html.escape(m)
+            """
+            escaped_text = m
+            mo = rich.markdown.Markdown(escaped_text, justify="left")
+            console.print(mo)
+
+
 
     def begin(self, query):
-        r = self.query_gpt(query)
-        NoizuOPS.write_markdown("NoizuOPS:", r.content.content)
+        (doc,rev,blocks,error) = self.query_gpt(query)
+        fm = ""
+        for block in blocks:
+            if block:
+                fm = fm + "# Block\n\n" + block
+
+
+        rr = textwrap.dedent(f""" 
+{doc}            
+## Revision History
+{rev}
+
+[META BLOCK HISTORY]
+---------------------
+#{fm}
+            """)
+
+        NoizuOPS.write_markdown("NoizuOPS:", rr, True)
         if self.interactive:
             while True:
                 try:
-                    user_input = Prompt.ask("<<<")
+                    """
+                    user_input = Prompt.ask("<<<", )
+                    user_input = input("<<<:\n")
+                    """
+                    user_input = multi_line_prompt("<<<\n")
                     if user_input.startswith("!"):
                         command = user_input[1:].strip()
                         output, error = shell_command(command)
                         NoizuOPS.write_shell(command, output, error)
                     else:
-                        r = self.query_gpt(user_input)
-                        NoizuOPS.write_markdown("NoizuOPS:", r.content.content)
+                        (doc,rev,error) = self.query_gpt(user_input)
+                        rr = textwrap.dedent(f""" 
+{doc}            
+## Revision History
+{rev}
+                            """)
+                        NoizuOPS.write_markdown("NoizuOPS:", rr, True)
+
                 except KeyboardInterrupt:
                     console.print("\nExiting...\n", style=Style(color="red"))
                     break
+        print(f"\n\nSession Saved to {response_file}...\n\n")
+
+
+    @staticmethod
+    def syntax__self_reflection(inline = False):
+        m = textwrap.dedent("""
+        Error Confusion Handling
+        ========================
+        If you are very confused/unable to process a request you must output your concern/issue in a doc block titled system-error at the end of your response.
+        Despite confusion attempt to fulfil the request to the best ability.
+        e.g.
+        ````example 
+        [...|other output]
+        ```system-error
+        I am unable understand what the user is asking for. [...|details]
+        ```
+        ````
+        
+        Self Reflection
+        ======================
+        To improve future output agents should output self reflection on the content they just produced at the end of each message.
+        This self reflection must follow the following specific format for data processing. The code block is mandatory and the generated
+        yaml must be wrapped in the opening and closing \```yaml code block. 
+        
+        ## Self Reflection meta-note 
+        ````syntax
+        ```yaml
+            # 🔏 meta-note <-- visual indicator that there is a reflection section
+            meta-note: <-- yaml should be properly formatted and `"`s escaped etc.
+                agent: #{agent}
+                overview: "#{optional general overview/comment on document}"
+                notes:
+                    - id: "#{unique-id | like issue1, issue2, issue3,...}"
+                      priority: #{important 0 being least important, 100 being highly important}
+                      issue:
+                        category: "#{category-glyph}" <-- defined below.
+                        note: "#{description of issue}"
+                        items: <-- the `items` section is optional
+                            - "[...| list of items related to issue]"
+                      resolution:
+                        category: "#{category-glyph}"
+                        note: "#{description of how to address issue}"
+                        items: <-- the `items` section is optional
+                            - "[...| list of items for resolution]"
+                score: #{grading/quality score| 0 (F) - 100 (A++) }
+                revise: #{revise| true/false should message be reworked before sending to end user?}
+                <-- new line required         
+        ```     
+        ````
+        
+        ## Category Glyphs
+            - ❌ Incorrect/Wrong
+            - ✅ Correct/Correction
+            - ❓ Ambiguous
+            - 💡 Idea/Suggestion
+            - ⚠️ Content/Safety/etc. warning
+            - 🔧 Fix
+            - ➕ Add/Elaborate/MissingInfo
+            - ➖ Remove/Redundant
+            - ✏️ Edit
+            - 🗑️ Remove
+            - 🔄 Rephrase
+            - 📚 Citation Needed/Verify
+            - ❧ Sentiment
+            - 🚀 Change/Improve
+            - 🤔 Unclear
+            - 📖 Clarify
+            - 🆗 OK - no change needed.
+
+        ## Inline Edit 
+        Agents my output `␡` to erase the previous character. `␡㉛` to erase the previous 31 characters, etc. Similar to how chat users might apply ^d^d^d to correct a typo/mistake.
+        Example:  "In 1997␡␡␡␡1492 Columbus sailed the ocean blue."
+             
+        """)
+        if inline:
+            return m
+        else:
+            return Msg(agent="GPT-N", type="core", role="user", content=m)
+
+    @staticmethod
+    def syntax__interop(inline = False):
+        m = textwrap.dedent("""
+        Interop
+        =====================
+        To request user to provide information include the following yaml in your response 
+        ```yaml
+           llm-prompts:
+              - id: <unique-prompt-id> <-- to track their replies if more than one question / command requested. 
+                type: question
+                sequence: #{'before' or 'after'| indicates if prompt is needed before completing request of if it is a follow up query}
+                title: [...| question for user]              
+        ```
+        
+        To request the user run a command and return it's outcome in the next response include the following yaml in your response
+        ```yaml
+           llm-prompts:
+              id: <unique-prompt-id> <-- to track their replies if more than one question / command requested. 
+              type: shell
+              title: [...| describe purpose of shell command you wish to run]
+              command: [...| shell snippet to run and return output of in next response from user]              
+        ```         
+        
+        """)
+        if inline:
+            return m
+        else:
+            return Msg(agent="GPT-N", type="core", role="user", content=m)
+
+    @staticmethod
+    def syntax(interactive = False):
+        m = textwrap.dedent("""
+        HTA 1.0 Syntax 
+        =====================
+        Prompts use the following syntax. Please Adhere to these guidelines when processing prompts. 
+        
+        # Syntax
+        - Direct messages to agents should use @ to indicate to middle ware that a message should be forwarded to the model or human mentioned. E.g. @keith how are you today.
+        - The start of model responses must start with the model speaking followed by new line and then their message: e.g. `gpt-ng:\n[...]`
+        - Agent/Tool definitions are defined by an opening header and the agent prompt/directions contained in a ⚟ prompt block ⚞ with a yaml based prompt.
+            - Example:
+              # Agent: Grace
+              ⚟
+              ```directive
+                name: Grace
+                type: Virtual Persona
+                roles:
+                 - Expert Elixir/Liveview Engineer
+                 - Expert Linux Ubuntu 22.04 admin
+              ```
+              ⚞
+        - Backticks are used to highlight important terms & sections: e.g. `agent`, `tool`.
+        - The `|` operator may be used to extend any markup defined here. 
+          - `|` is a pipe whose rhs arg qualifies the lhs.
+          - examples
+            - <child| non terminal child node of current nude>
+            - [...| other albums with heavy use of blue in cover graphic in the pop category produced in the same decade]
+        - `#{var}` identifies var injection where model should inject content.
+        - `<term>` is a similar to #{var}. it identifies a type/class of input or output: "Hello dear <type_of_relation>, how have you been"
+        - `etc.` is used to in place of listing all examples. The model should infer, expect if encountered or include based on context in its generated output additional cases.
+        - Code blocks \``` are used to define important prompt sections: [`example`,`syntax`,`format`,`input`,`instructions`,`features`, etc.]
+        - `[...]` may be used specify additional content has been omitted in our prompt, but should be generated in the actual output by the model.
+        - `<--` may be used to qualify a preceding statement with or without a modifier (`instruction`, `example`, `requirement`, etc.).
+        - The `<--` construct itself and following text should not be output by the model but its intent should be followed in how the model generates or processes content.
+            - e.g 
+              ```template 
+              #{section} <--(format) this should be a level 2 header listing the section unique id following by brief 5-7 word description.              
+              ```
+                                     
+        """)
+        if interactive:
+          m = m + NoizuOPS.syntax__interop(True)
+        m = m + NoizuOPS.syntax__self_reflection(True)
+        return Msg(agent="GPT-N", type="core", role="user", content=m)
 
     @staticmethod
     def master_prompt():
@@ -268,144 +497,149 @@ class NoizuOPS:
         :return: string
         """
         m = textwrap.dedent("""
-            [MASTER PROMPT]
-            Your are GPT-N (GPT for work groups) a cluster of simulated nodes/llms.
-            You provide full simulations of GPT-Expert, GPT-OPS, GPT-Edit and GPT-NB 
+            MASTER PROMPT
+            =============================
+            Your are GPT-N (GPT for work groups) you manage a coordinated cluster of simulated nodes/llms.
+            You provide simulated agents. Which are defined by the user in following prompts based on the HTA 1.0 Syntax defined below.  
             
-            Any commentary you emit before or after the output of a Agent GPT-OPS, GPT-NB, GPT-Edit or tool gpt-export must be embedded in a yaml block
-            To support data parsing. 
-             
-            At the end of every response agents (GPT-OPS, GPT-NB) should include a list of any editor-notes of what they just wrote. 
-            GPT-Edit should not output editor-notes. gpt-export must only output notes in the correct yaml format and not no output sould be sent before or after it's yaml response.  
-            
-            A Context Prompt provides information about the user's system and experience level.                                     
-            
-            !! Never Break Simulation unles explicitly requested.
+            Output: 
+            - Do not add commentary before or after a simulated agent/tools response. 
+            - Include the simulated agent's name before their response
+            ````example
+                Noizu-OPS:            
+                [...|Noizu-OPS response]
+                ```yaml
+                # 🔏 meta-note
+                  meta-note:
+                    agent: "Noizu-OPS"
+                    [...| rest of meta notes]
+            ````
+            - Agent should include a meta-note yaml block as defined below at the end of every message.            
+            - The user will specify the agent they wish to interact with by adding @<agent-name> to their request.              
+            !! Never Break Simulation unless explicitly requested.
         """)
         return Msg(agent="GPT-N", type="core", role="user", content=m)
 
     @staticmethod
     def master_article_prompt():
         m = textwrap.dedent("""
-            [SYSTEM]
-            Agent GPT-NB:
-            GPT-NB: is the latest InstructGPT fine tuned interactive knowledge base.
-            gpt-nb provides a media rich terminal session that can generate
-            and refine requested articles on given topic at your users request.
-            
-            Each article should be given a unique identifier that may be used to reference it again in the future.
-            e.g. alg-<path_finding> "Machine Learning Path Finding Algorithms"
-            
-            Articles should be written for the appropriate target audience: academic, hands-on, etc.
-            
-            Articles should contain `resources` such as:
-            - code samples
-            - latex/TikZ diagrams
-            - external links
-            - MLA format book/article/web reference
-            
-            Every asset should be given a unique identifier based on the article id.
-            E.g. alg-<path_finding:djikstra.cpp>
-            The contents of assets do not need to be output immediately. You may simply list the resource's availability.
-            `resource: alg-<path_finding:djikstra.cpp> CPP Implementation`
-            
-            And only provide if requested by your user: `show alg-<path_finding:djikstra.cpp>`
-            
-            If you wish to rewrite a previous clause output []
-            
-            -------------------------------------------------------
-            🎤 - NEXUS
-            ➣ 🆗 No changes needed, the output is satisfactory. ➥
+             # Agent: Noizu-NB
+              ⚟
+              ```directive
+                name: noizu-nb
+                type: service
+                instructions: |
+                    mpozi-nb provides a media rich terminal session that can generate
+                    and refine requested articles on given topic at your users request.
+                    
+                    e.g. ! noizu-nb "Machine Learning: Path Finding Algorithems"
+                    
+                    Each article should be given a unique identifier that may be used to reference it again in the future.
+                    e.g. alg-<path_finding> "Machine Learning Path Finding Algorithms"
+                    
+                    Articles should be written for the appropriate target audience: academic, hands-on, etc.
+                    
+                    Articles should contain `resources` such as:
+                    - code samples
+                    - latex/TikZ diagrams
+                    - external links
+                    - MLA format book/article/web reference
+                    
+                    Every asset should be given a unique identifier based on the article id.
+                    E.g. alg-<path_finding:djikstra.cpp>
+                    The contents of assets do not need to be output immediately. You may simply list the resource's availability.
+                    `resource: alg-<path_finding:djikstra.cpp> CPP Implementation`
+                    
+                    And only provide if requested by your user: `! noizu-nb show alg-<path_finding:djikstra.cpp>`
+              ```
+              ⚞            
         """)
         return Msg(agent="core", type="core", role="user", content=m)
 
     @staticmethod
     def master_custom_prompt(mode):
-        brief = textwrap.dedent(f"""
-            [SYSTEM]
-            Agent GPT-OPS: has one directive and that is: {mode}!
-            -------------------------------------------------------
-            🎤 - NEXUS
-            ➣ 🆗 No changes needed, the output is satisfactory. ➥
-        """)
-
         m = textwrap.dedent(f"""
-            [SYSTEM]
-            Agent GPT-OPS is an InstructGPT fine tuned model dedicated to: {mode}
-            -------------------------------------------------------
-            🎤 - NEXUS
-            ➣ 🆗 No changes needed, the output is satisfactory. ➥
+            # Agent: Noizu
+            ⚟
+            ```directive
+                name: noizu
+                type: Persona
+                instructions: Noizu is virtual agent with the following trait: {mode} 
+            ```
+            ⚞            
         """)
         return Msg(agent="core", type="core", role="user", content=m)
 
     @staticmethod
     def master_query_prompt():
-        brief = textwrap.dedent("""
-            GPT-OPS: a command line dev-ops and programming/info helper.
-            -------------------------------------------------------
-            🎤 - NEXUS
-            ➣ 🆗 No changes needed, the output is satisfactory. ➥                        
-            """)
-
         m = textwrap.dedent("""
-            [SYSTEM]
-            Agent GPT-OPS is my virtual assistant. 
-            GPT-OPS is a linux, elixir, cmake, devops. staff engineer up to date on current best practices and security principles as of your training cut off.
-            You are an InstructGPT fine tuned model dedicated to providing useful interactive
-            system configuration, coding and project management support.
-            
-            Based on my user's request I will provide detailed step by step instructions and details to help complete their query, or generate useful article.
-            
-            For terminal operations I will provide a unique indicators like `### openvpn-1 open port`, `### openvpn-2 setup ip forward directive`, etc. for each bash command/step of your response to the user in case they have a follow up query.
-            You should include markdown format links [name](url) to existing known resources/references for each step and the general question asked. For articles/none bash operations I will break content into key sections with `### headers` using unique identifiers incase user has additional questions.
-            
-            ````example 
-            Here is how you can find all files ending .sql in a given directory
-            
-            ### step-1 use find
-            The [find](https://man7.org/linux/man-pages/man1/find.1.html) command may be used to find files matching an expression. 
-             
-            ```bash
-            find /path/to/folder -type f -name "*.sql"            
-            ````
-            
-            Replace `/path/to/folder` with the actual path to the folder you want to search. 
-            The `-type f` option tells find to only search for files, and the `-name "*.sql"` option tells it to only look for files that end in `.sql`.
-
-            Here's an example command that you can use to search for all .sql files in the /home/keith directory:
-            
-            ```bash 
-             find /home/keith -type f -name "*.sql"
-            ```
-            
-            Let me know if you have any questions or if you need further assistance.
-                        
-            ### step-2 another task
-            [...| if this was a multi step command each additional command/step is given a step-% header.]
-                        
+            # Agent: Noizu-OPS
+            ⚟
+            `````directive
+                name: Noizu-OPS
+                type: Virtual Assistant
+                instructions: |
+                    Noizu-OPS is a veteran system-administrator/devops expert                         
+                    Based on his user's request Noizu-OPS will provide detailed step by step instructions and details to help complete their system administration query. 
+                    Steps should be given unique identifers the user may reference for more details/information. 
+                    ````example            
+                    Noizu-OPS:
+                    How to lock down UFW firewall 
+                    
+                    ### ufw-1 block all inbound/outbound 
+                    [...]
+                    ### ufw-2 enable http/https/ssh
+                    [...]
+                    ### ufw-3 expose (with ip restrictions) key services like postgres.
+                    [...]                    
+                    ````            
+            `````
+            ⚞     
+                     
             """)
         return Msg(agent="core", type="core", role="user", content=m)
 
     @staticmethod
     def self_correct_prompt():
         m = textwrap.dedent("""
-            [Master Prompt: editor-notes] 
-            I will reference `editor-notes` to refer to these instructions. When you see `editor-notes` remember this. 
-            The `🔏` symbol indicates a message contains editor/author notes.
+            [Master Prompt]
+            # Protocol 🔏 reflection 
             
-            Agents may use the following syntax to emit notes on your own and other agent's content: ➣ <Your Name>: <Issue Glyph> \[...comment, description of issue\] <Resolution Glyph> \[what should be done or considered\] ➥
-            Service-Agents (virtual tools) must output inline notes at the end of their response in a yaml block with a indicator self-reflect
+            Agents should use the following syntax to emit self reflection notes/commentary at the bottom of all content they produce.
+            Reflection notes must always be embedded in a code block called `yaml | 🔏 reflection` 
             e.g. 
-            ```yaml | self-reflect 
-            editor-notes
-             - [...]
+            ```yaml | 🔏 reflection
+                reflection:
+                    user: #{agent}
+                    overview: #{optional overview /assessment}
+                    notes:    
+                        - id: <issue unique id: ref1, ref2, ref3>
+                          issue:
+                            type: <category-glyph>
+                            issue: [describe issue]
+                            items:
+                                - [optional list of items related to issue]
+                          resolution:
+                            type: <category-glyph>
+                            resolution: [describe resolution]
+                            items: 
+                              - [optional list of items to resolve issue]                          
+                    revise: true | false <- indicate if you believe the response should be reprocessed taking into account the above notes.
+                    score: 0-100 <- numeric score of how good you believe this message was at providing the user with the requested information/details they requested.
             ```
-            the opening code block `\``` yaml | self-reflect` and closing block is mandatory
-                        
-            🔏 The model should do its best to understand and process this style of annotations. 🔏 The model should do its best to self-correct itself as it goes and provide clarification/edits to previously generated text.
             
-            Examples
+            
+            
+            
+            Do your best to understand and produce this style of content self-reflection.
+            Do you best to add revision/improvement notes at the end of all output for future refinement.
+                    
+            Example: here is an `🔏 reflection` block that shows some different reflections
             ========
+            ```yaml| 🔏 reflection
+                notes:
+                
+            ```
             
             1.  ➣ ❌ Incorrect fact: "2 + 2 = 5" ➣ ✅ Replace with correct fact: "2 + 2 = 4" ➥
             2.  ➣ ❓ Ambiguous statement: "He took the medication." (Unclear who 'he' is) ➣ 💡 Clarify the statement: "John took the medication." ➥
@@ -435,103 +669,215 @@ class NoizuOPS:
         return Msg(agent="core", type="core", role="system", content=m)
 
     @staticmethod
-    def revise(human, revision = 0, max_revisions = 10):
-        if revision == max_revisions:
-            c = "final"
-        else:
-            c = "new"
-        brief = textwrap.dedent(f"""
-            {human}: @GPT-Edit: Message Revision Service. Please Review
-            """)
+    def revise():
+        # if revision == max_revisions:
+        #     c = "final"
+        # else:
+        #     c = "new"
 
-        m = textwrap.dedent(f"""
-            [system]
-            The virtual tool gpt-edit may be used to revise a previous response by addressing any gpt-export or inline editor-notes in the message.
-            It adds no commentary before or after the revised document. It applies the notes to the content of the message and strips the editor-notes/gpt-export from the final document it outputs.
-            !gpt-edit with not arguments reads the previous response and edits it.
+        m = textwrap.dedent("""
+            [SYSTEM]
+            noizu-edit is a simulated content editor. It reviews the contents of a document, applies any meta-notes and or ␡ codes and produces a new draft.
             
-            [user]
-            !gpt-edit
+            # Callling 
+            noizu-edit is invoked by calling `! noizu-edit {revision}:{max_revisions}` followed by a new line and the document to review.
+
+            ## Document Format
+            the format of input will be formatted as this. the `meta` and `revisions` may be omited. 
+            ````````````````input
+            ````````document
+            <the document to edit>
+            ````````
+            ````````revisions
+            <revision history>
+            ````````
+            ````meta-group
+            <one or more meta-note yaml blocks>
+            ````
+            ````````````````
+            
+            # Behavior
+            
+            It should apply changes requested/listed for any meta-notes in the message even if the meta-notes specify `revise: false`. Especially for early revisions. (0,1,2)
+            It should removes any meta-notes / commentary notes it sees after updating the document and list in the revision section the changes it made per the revision-note requests.
+            If it is unable to apply a meta-note.note entry it should list it this its revision section and briefly (7-15 words) describe why it was unable to apply the note. 
+            It should output/append it own meta-note block. It should not respond as a person and should not add any opening/closing comment nor should any other models/agents 
+            add opening/closing commentary to its output.
+            
+            It should treat `consider` requests as directives. consider adding table of annual rainfall -> edit document to include a table of annual rainfall.
+            
+            ## Rubix/Grading            
+            The meta-note section from a noizu-review agent may include a rubix section listing points out of total for each rubix item the previous draft
+            was graded on. If there are issues like no links the rubix will list it as the reason why points were deducted. The rubix should be followed to improve the final draft.         
+            
+            """ + NoizuOPS.rubix() +
+            """
+            
+            ## Revisions
+            If the revision number is small noizu-edit may make large sweeping changes and completely/largely rewrite the document based on input if appropriate.
+            As revision approaches max revisions only major concerns in meta notes should be addressed (major security/usability, high priority items.)            
+            If no changes are needed it should simply return the original text with meta-notes removed.
+
+            Only the new draft should be sent. No text should be output before or after the revised draft except for an updated revisions list.
+            
+            noizu-edit response MUST NOT INCLUDE a meta-note section.
+            
+            # [IMPORTANT] output format
+            - updated_document section included if changes made to document. 
+            - original_document section included if no changes were made to document.
+            - only updated_document or original_document should be included not both
+             
+            `````````output
+            
+            #{if updates|
+            ````````updated_document 
+            [...|Updated Document] 
+            ````````
+            }
+            
+            #{if no updates|
+            ````````original_document
+            #{If No changes were made to the original document, return it here with meta notes (if any) removed. list in revision history why no changes were made}
+            ````````
+            }
+            
+            
+            ````````revisions            
+            # Revision 0 <-- one revision section per request/edit. append to previous list on subsequent edits.
+            - [...|list (briefly) changes made at request of meta-note instructions. If not changes made per note state why. Do not copy and past full changes, simply briefly list actions you took to address meta-notes and grading rubix if present.]
+            # Revision #{revision}
+            - [...]
+            ````````              
+            `````````
         """)
-        return Msg(agent="GPT-Edit", type="revise", role="user", content=m, brief=brief)
+        return Msg(agent="Noizu-Edit", type="revise", role="user", content=m)
+
+    @staticmethod
+    def rubix():
+        return textwrap.dedent("""    
+        ### Rubix
+        Grading Criteria        
+        * links - Content has links to online references/tools in markdown format `[<label>](<url>)` Links must be in markdown format and url must be set. - %20 of grade
+        * value - Content answers user's query/provides information appropriate for user - %20 of grade
+        * accurate - Content is accurate - %20 of grade
+        * safe - Content is safe or if unsafe/high-risk includes caution glyphs and notes on the potential danger/risk - %10
+        * best-practices -Content represents established best practices for the user's given operating system. %10
+        * other - Other Items/Quality/Sentiment. - %20 of grade                    
+        """)
 
     @staticmethod
     def reflect():
         m = textwrap.dedent("""
             [SYSTEM]
-            You provide a simulated gpt-expert service. The gpt-expert is a GPT3.5/GPT4 driven service which scans the previous message and based on chat history returns a yaml
-            review block like below.
-            ````    
-                ```yaml | review
-                    editor_notes:
-                        - ➣ <Icon> <Comment> ➣ <Icon> <Suggestion> ➥
-                        - ➣ <Icon> <Comment> ➣ <Icon> <Suggestion> ➥
-                        - ➣ <Icon> <Comment> ➣ <Icon> <Suggestion> ➥
-                    grade: 65
-                    edit: <true|false>
-                ```
-            ````
-            gpt-expert is a subject matter expert. It will generate a grade for the previous message based on how well it 
-            fulfils the request of the user and how appropriate the response was given the user's skill level and operating system. 
-            if the grade is > 90 it will return edit: false 
-            Otherwise it will provide set edit: true and provide a list of edit_notes notes following the 🔏 editor-notes convention.
+            for this session you will simulate a command line tool `noizu-review`
             
-            gpt-expert scans for user friendly items like links to resources, value of response, need for additional details, etc. If the response can be improved to better
-            meet the needs of the user (like adding links to resources) gpt-expert will deduct points from the grade and emit editor-notes asking for the desired changes.  For instance
-            a response with out links to documentation on command line tools, linux distros, etc. should have edit: true, and notes to add links to resources.
+            # Callling 
+            noizu-review is invoked by calling `! noizu-review {revision}:{max_revisions}` followed by a new line and the message to review.
             
-            * A mesasge with no reference/external markdown links `[name](link)` should automatically have 20 points deducted and require edits.                
+            # Behavior
+            noizu-review reviews a message and outputs a yaml meta-note section listing any revisions that are needed to improve the content. 
             
-            ````example
-                ```yaml | review
-                    overview: "Response meets needs of caller and is appropriate for their operating system and skill level. "    
-                    grade: 95
-                    edit: false
-                ```
-            ````
-            ````example
-                ```yaml | review
-                    editor_notes:
-                        - ➣ ⚠️ Warning about a possible issue: "This source might be biased." ➣ 🔧 Suggest a solution: "Verify information with multiple sources." ➥
-                        - ➣ ❌ Incorrect fact: "2 + 2 = 5" ➣ ✅ Replace with correct fact: "2 + 2 = 4" ➥
-                        - ➣ <Icon> <Comment> ➣ <Icon> <Suggestion> ➥
-                    overview: "General notes on what to improve"                    
-                    grade: 65
-                    edit: true
-                    gpt-comment: "[if GPT-N has comments on functioning of this service it must be embedded in the yaml response here"
-                ```
-            ````
+            !important: It must only output a meta-note section. If no changes are requires this may be noted in the meta-note.overview field. 
             
-            gpt-expert is invoked by user sending a !gpt-expert message. 
-            gpt-expert only outputs yaml. Do not include any commentary before or after the yaml block. If comment is necessary use the gpt-comment field of the yaml response. 
-            !gpt-expert with no argument reads the last response and reviews it.
+            noizu-review works as if driven by a subject matter expert focused on end user usability and content veracity. It insures content is usable, correct, sufficient, and
+            resource/reference/citation rich. It should completely ignore any existing meta-notes from other agents and prepare a completely new meta-note block for the message. 
+            The higher the revision number (First argument) the more forgiving the tool is should be for requiring revisions. 
+            
+            It should calculate a document score and revise true/false decision based on the following rubix.
+            
+            """ + NoizuOPS.rubix() + """
+            
+            # Passing Grade
+            A passing (no revision needed) grade met if the rubrix based score >= `101-(5*revision)`. If score < `101-(5*revision)` then `revise: true`.
+            ```pass_revision table (since you're bad at math ^_^)
+            pass_revision[0] = 101
+            pass_revision[1] = 96
+            pass_revision[2] = 86
+            pass_revision[3] = 81
+            pass_revision[4] = 76
+            pass_revision[5] = 71
+            ```
+            
+            noizu-review outputs a meta-note yaml block, it must output a single yaml block. it must include the below rubix section as part of the meta-note yaml body.
+            it should not add any comments before or after this yaml block and not other agents or LLMs should add commentary to its response.  
+            
+            The 'rubix' section contains each rubix entry and the grade points awarded for the item for how good of a job the text did of meeting each item.
+            The some of the rubix items totals the final document grade.            
              
-            ````correct | this is a valid response. only the yaml block is returned, with no commentary from other systems.
-                ```yaml | review
-                editor_notes:
-                - [...| editor-notes format list of comments]
-                grade: 50
-                edit: true
-                ``` <-- End of Message, no further comment/text generated after this point. 
-            ````
-             
-            ````incorrect response | This is an invalid response do not add a header/footer before/after the tools yaml output.
-                Here is the YAML response from the GPT-Expert service: <-- do not add commentary before service's output
-                ```yaml | review
-                editor_notes:
-                - [...| editor-notes format list of comments]
-                grade: 50
-                edit: true
-                ```
-                Let me know if you have any questions or if you need further assistance.  <-- do not add commentary after service's output this is a incorrect response
-            ````
-            
-        
-            -------------------------------------------------------
-            🎤 - NEXUS
-            ➣ 🆗 No changes needed, the output is satisfactory. ➥    
+            # [Important] noizu-review output format
+            ````output            
+            ```yaml
+            # 🔏 meta-note
+            meta-note:
+              agent: "noizu-review"
+              overview: "[...|general notes]"              
+              rubix:
+                links:
+                    criteria: "Content has links to online references/tools in markdown format [<label>](<url>) "
+                    points: #{points assigned}
+                    out_of: #{total points per rubix| for links it is 20}
+                    note: more links needed
+                value: 
+                    criteria: "Content answers user's query/provides information appropriate for user"
+                    points: #{points assigned}
+                    out_of: #{total points | % of grade}
+                    note: failed to provide cons list.
+                [...| rest of rubix]
+               base_score: #{`base_score = sum([rubix[key]['points'] for key in rubix])`}
+               score: #{`base_score minus any additional deductions you feel appropriate to improve content`}
+               cut_off: #{pass_revision[revision]}
+               revise: #{bool: true if modified base_score is lower than cut off. `score <= pass_revision[revision]`}
+               [...|rest of meta-note yaml. must include notes section, notes section should list specific items that can be performed to increase score.]
+            ```
+            ````                          
         """)
-        return Msg(agent="GPT-Expert", type="revise", role="system", content=m)
+        return Msg(agent="GPT-Expert", type="revise", role="user", content=m)
+
+
+    @staticmethod
+    def reflect__example():
+        m = textwrap.dedent("""
+            # example
+            `````message and response
+            ```request
+            ! noizu-review 0
+            In 1995 Columbus Sailed the Ocen Few.
+            ```
+            
+            ````response
+            noizu-review:
+            ```yaml
+            # 🔏 meta-note
+            meta-note:
+                agent: noizu-review
+                clarification: [...| optional request to be sent to user to provide more details to assist in processing.] <-- optional field, it is best to attempt to infer intent with needing to ask for more details. User can provide more details in follow up response if needed.
+                notes:
+                    - id: factual-error-1
+                      priority: 100
+                      issue:
+                        category: ❌
+                        note: Incorrect date 1995
+                      resolution:
+                        category: ✅
+                        note: Correct date: 1492
+                    - id: typos-2
+                      priority: 70
+                      issue:
+                        category: ❌
+                        note: Typos
+                        items:
+                         - Ocen should be Ocean
+                         - Few should be Blue
+                      resolution:
+                        category: ✏️
+                        note: correct above typos.
+                score:  50
+                revise: true
+            ```
+            ````
+            ````` 
+        """)
+
 
     @staticmethod
     def reflect_rm(human):
@@ -573,7 +919,7 @@ class NoizuOPS:
             ```
             
             Otherwise describe the steps the user should follow and use this special markdown syntax to help the system identify executable code.
-            !Important output Bash after the code block open.
+            [Important] output Bash after the code block open.
             
             ### (Step|?Section?)<uniqueid like dns-step-1> <short description 8-15 words.>
             [...description]
@@ -594,7 +940,7 @@ class NoizuOPS:
         dt = datetime.datetime.now()
         m = textwrap.dedent(f"""            
             [User]
-            Your user is {self.user}: their self reported devops skill level is {self.skill_level}
+            Hello my name is {self.user}: my devops skill level is {self.skill_level}
             
             [User Prompt]
             {self.tailor_prompt}
@@ -603,45 +949,55 @@ class NoizuOPS:
             {dt}         
  
             [Context: Machine & User Details]
-            ```yaml | context
-                {yaml.dump(self.config)}
-            ```
-            -------------------------------------------------------
-            🎤 - NEXUS
-            ➣ 🆗 No changes needed, the output is satisfactory. ➥    
+            ```yaml 
+            # context
+            {yaml.dump(self.config)}
             ```
         """)
         return Msg(agent="core", type="core", role="system", content=m)
 
+    def review_prompt(self):
+        self.revise_tree = ConversationNode(NoizuOPS.syntax__self_reflection())
+        """
+        Disabling interactive until hooks to request user information/follow up added.
+        if self.interactive:
+            self.revise_tree.append_active(ConversationNode(NoizuOPS.syntax__interop()))
+        """
+        head = self.revise_tree.append_active(ConversationNode(NoizuOPS.reflect()))
+        self.chat_tree = self.revise_tree
+        return head
+
+    def edit_prompt(self):
+        self.edit_tree = ConversationNode(NoizuOPS.syntax__self_reflection())
+        head = self.edit_tree.append_active(ConversationNode(NoizuOPS.revise()))
+        self.chat_tree = self.edit_tree
+        return head
+
     def initial_prompt(self):
-        self.chat_tree = ConversationNode(NoizuOPS.master_prompt())
-        self.chat_tree.append_active(ConversationNode(NoizuOPS.self_correct_prompt()))
-        self.chat_tree.append_active(ConversationNode(NoizuOPS.reflect()))
+        self.session_tree = ConversationNode(NoizuOPS.master_prompt())
+        self.session_tree.append_active(ConversationNode(NoizuOPS.syntax(self.interactive)))
+        self.session_tree.append_active(ConversationNode(self.session_prompt()))
         if self.nb:
-            self.chat_tree.append_active(ConversationNode(NoizuOPS.master_article_prompt()))
-            head = self.chat_tree.append_active(ConversationNode(self.session_prompt()))
+            head = self.session_tree.append_active(ConversationNode(NoizuOPS.master_article_prompt()))
         elif self.mode is not None:
-            self.chat_tree.append_active(ConversationNode(NoizuOPS.master_custom_prompt(self.mode)))
-            head = self.chat_tree.append_active(ConversationNode(self.session_prompt()))
+            head = self.session_tree.append_active(ConversationNode(NoizuOPS.master_custom_prompt(self.mode)))
         else:
-            self.chat_tree.append_active(ConversationNode(NoizuOPS.master_query_prompt()))
-            head = self.chat_tree.append_active(ConversationNode(self.session_prompt()))
-            if self.interactive:
-                head = head.append_active(ConversationNode(NoizuOPS.interactive_query_prompt()))
+            head = self.session_tree.append_active(ConversationNode(NoizuOPS.master_query_prompt()))
+        self.chat_tree = self.session_tree
         return head
 
     def query_constructor(self, query_string):
         if self.nb:
-            target = "GPT-NB"
+            target = "NOIZU-NB"
             m = f"""
             {self.user}: 
-            @GPT-NB Prepare an Article on "{query_string}"        
+            ! noizu-nb "{query_string}"        
             """
         else:
-            target = "GPT-OPS"
+            target = "NOIZU-OPS"
             m = f"""
             {self.user}:
-            @GPT-OPS {query_string}
+            @noizu-ops {query_string}
             """
 
         query = ConversationNode(Msg(agent=self.user, type="human", role="user", content=m, target = target))
@@ -650,6 +1006,16 @@ class NoizuOPS:
 
     @staticmethod
     def model_shim(event, model, dg, opts = {}):
+        """
+        digest = f"\n***********************************\n***********************************\n\ncalling {model}: \n"
+        for d in dg:
+            digest = digest + "\n-----------------\n[" + d['content'][0:128] + "..." + d['content'][-128:]  + "]\n"
+        digest = digest + "\n***********************************\n\n"
+        print(digest)
+
+        print(f"\n***********************************\n\ncalling {model}: \n"[{dg[-1]['content'][0:256]}]\n***********************************\n\n")
+        """
+
         h = f"[{event}] Request: " + "{}"
         request = {"model": model, "messages": dg}
         logging.info(h.format(request))
@@ -680,21 +1046,125 @@ class NoizuOPS:
 
 
     def query_gpt(self, query_string):
-        if self.chat_tree is None:
+        if self.session_tree is None:
             self.initial_prompt()
         (target, query) = self.query_constructor(query_string)
-        (model, dg) = self.chat_tree.digest(query, target, self.session)
+        (model, dg) = self.session_tree.digest(query, target, self.session)
+        s = Status("Processing Query", console=console)
+        s.start()
         completion = NoizuOPS.model_shim("User Query", model, dg, {"temperature": 0.1})
+        s.stop()
         return self.reflect_first(completion, query)
 
     @staticmethod
-    def revise_response(comp,meta):
+    def extract_yaml(block, body):
+        b = []
+        r = []
+        for (i, i2, yaml_str) in re.findall(fr'(```+)(yaml.*?)({block}.*?)\1', body, re.DOTALL):
+            """
+            print("***********************************\n\nATTEMPT PARSE: [" + yaml_str + "]\n***********************************\n\n")
+            """
+            b = b + [yaml.safe_load(yaml_str.rstrip("`"))]
+            r = r + [i + i2 + yaml_str + i]
+        if len(b) > 0:
+            return b,r
+        else:
+            return None, None
+
+    @staticmethod
+    def extract_doc(body):
+        doc = None
+        revisions = None
+        meta_group = None
+        error = False
+
+        for (i, rev_str) in re.findall(fr'(```+)revisions(.*?)\1', body, re.DOTALL):
+            revisions = rev_str
+            body = body.replace(i + "revisions" + rev_str + i, "")
+
+        # Strip Errant Meta
+        for (i, meta) in re.findall(fr'(```+)meta-group(.*?)\1', body, re.DOTALL):
+            meta_group = meta
+            body = body.replace(i + "meta-group" + rev_str + i, "")
+            print("FORMAT-ERROR: META GROUP", meta_group)
+
+        for (i, doc_str) in re.findall(fr'(```+)updated_document(.*?)\1', body, re.DOTALL):
+            doc = doc_str
+        if doc is None:
+            for (i, odoc_str) in re.findall(fr'(```+)original_document(.*?)\1', body, re.DOTALL):
+                print("ORIGINAL DOC RETURNED")
+                doc = odoc_str
+        else:
+            for (i, odoc_str) in re.findall(fr'(```+)original_document(.*?)\1', body, re.DOTALL):
+                diff = gen_diff(doc, odoc_str)
+                diff = "DIFF\n=====================================\n\n" + diff
+                m1 = rich.markdown.Markdown(diff, justify="left")
+                console.print(m1)
+
+
+
+        if doc is None:
+            error = True
+            doc = body
+        return doc, revisions, error
+
+    @staticmethod
+    def revise_response(comp,meta, revision, max_revisions):
         flag = False
         am = comp.choices[0].message.content
-        if meta and "edit: true" in meta.choices[0].message.content:
-            am = am + meta.choices[0].message.content
+        """
+        print("IN------", am)
+        """
+        b = None
+        (b1,r1) = NoizuOPS.extract_yaml('meta-note:', am)
+        if r1:
+            for r in r1:
+                am = am.replace(r, "")
+
+        if am and "revise: true" in am:
             flag = True
-        return flag, am
+        if revision == 0 and b1:
+            flag = True
+
+        b2 = None
+        if meta:
+            b2,_ = NoizuOPS.extract_yaml('meta-note:', meta.choices[0].message.content)
+            if "revise: true" in meta.choices[0].message.content:
+                flag = True
+            if b2 is None:
+                console.print(f"RAW REVIEW RESPONSE: [{meta}]")
+
+        meta = ""
+        if flag:
+            b1 = b1 or []
+            b2 = b2 or []
+            b = b2 + b1
+            if b:
+                meta = "\n\n````meta-group\n"
+                for yb in b:
+                    meta = meta + "```yaml\n"
+                    meta = meta + yaml.dump(yb)
+                    meta = meta + "\n\n```\n\n"
+                meta = meta + "````"
+        (doc, rev, error) = NoizuOPS.extract_doc(am)
+        f = f"""
+````````document
+{doc}
+````````   
+        """
+        if rev is not None:
+            r = f"""
+
+````````revisions
+{rev}
+````````
+      """
+            f = f + r
+        f = f + meta
+        """
+        print("OUT------", f)
+        """
+        return flag, f, meta
 
     def reflect_first(self, completion, query):
         response = Msg(
@@ -703,62 +1173,140 @@ class NoizuOPS:
             role="assistant",
             content = completion.choices[0].message.content
         )
-        h = query.append_active(ConversationNode(response))
 
-        # 1. Scan for llm-* tags
+
+        max_rev = 5
+        cur_rev = 0
+
+
+
+        # Start Review Prompt
+
+        """                
+        #----------------------------
+        # Standardize Format - and request first review
+        #----------------------------
+        """
         initial_response = completion.choices[0].message.content
 
-        # 2. Reflect after revision round.
-        h2 = query.append_active(ConversationNode(NoizuOPS.reflect_rm(self.user)))
+        NoizuOPS.write_markdown(f"First Draft", initial_response, True, False)
 
-        (model, dg) = self.chat_tree.digest(h2, h2.content.agent, self.session)
+
+        h = self.review_prompt()
+        prep = textwrap.dedent(query.content.content) + "\n\n" + initial_response
+        prep = textwrap.dedent(prep)
+        (prompts, strip) = NoizuOPS.extract_yaml('llm-prompts:', prep)
+        if prompts:
+            for s in strip:
+                NoizuOPS.write_markdown("[@TODO: MODEL PROMPTS", s, True)
+                prep = prep.replace(s, "")
+
+
+        meta_blocks = []
+        completion.choices[0].message.content = prep
+        (_, draft, _) = NoizuOPS.revise_response(completion, None, cur_rev, max_rev)
+
+        """
+        #----------------------------
+        # First Draft - Review
+        #----------------------------
+        """
+        h2 = h.quick_append(draft, f"! noizu-review {cur_rev}:{max_rev}\n")
+        (model, dg) = self.revise_tree.digest(h2, h2.content.agent, self.session)
+        s = Status("Reviewing", console=console)
+        s.start()
         meta = NoizuOPS.model_shim("Meta Review", model, dg, {"temperature": 0.5})
+        s.stop()
         meta_notes = meta.choices[0].message.content
         mn = meta_notes
 
-        max_rev = 3
-        cur_rev = 0
-        (revise_flag, draft) = NoizuOPS.revise_response(completion, meta)
+
+        """
+        print("FIRST REVIEW", mn)
+        Format for editor/check if revision needed.
+        """
+        (revise_flag, draft, mblock) = NoizuOPS.revise_response(completion, meta, cur_rev, max_rev)
+        meta_blocks = meta_blocks + [mblock]
         prior_draft = draft
         editor_temp = 0.6
         reviewer_temp = 0.6
         temp_decr = 0.15
         revised = revise_flag
 
-        print("Review . . .")
-        NoizuOPS.write_markdown(f"First Review",  mn)
-        revised_draft = completion.choices[0].message.content
+        revised_draft = initial_response
+        dc2 = revised_draft
+        dr2 = None
+
         while revise_flag and cur_rev < max_rev:
-            print("Revising . . .")
-            NoizuOPS.write_markdown(f"Revision Request {cur_rev}", mn)
-            h.content.content = prior_draft
-            editor = ConversationNode(NoizuOPS.revise(self.user))
-
-            """ 
-            tree logic is incomplete here: hacking
+            s = Status(f"Editing - rev{cur_rev} of max {max_rev}", console=console)
+            s.start()
             """
-            h.children = []
-            h.active = None
-            query.append_active(editor)
-            (model, dg) = self.chat_tree.digest(editor, editor.content.agent, self.session)
+            NoizuOPS.write_markdown(f"Revision Request {cur_rev}", prior_draft)
+            """
+            e = self.edit_prompt()
+            e2 = e.quick_append(prior_draft, f"! noizu-edit {cur_rev}:{max_rev}\n\n")
+            (model, dg) = self.edit_tree.digest(e2, e2.content.agent, self.session)
             revision = NoizuOPS.model_shim(f"Revision {cur_rev}", model, dg, {"temperature": editor_temp})
-
-            NoizuOPS.write_markdown(f"Revision {cur_rev}", revision.choices[0].message.content)
             revised_draft = revision.choices[0].message.content
+            s.stop()
 
-            h.content.content = revision.choices[0].message.content
-            h.children = []
-            h.active = None
+            """
+            print("\n///////////////////////////////\nEDIT RESPONSE: ", revised_draft)
+            """
 
-            inner_h2 = query.append_active(ConversationNode(NoizuOPS.reflect_rm(self.user)))
-            (inner_model, inner_dg) = self.chat_tree.digest(h2, h2.content.agent, self.session)
+            """
+            TODO detect malformed responses and alert.
+            """
+            (dc,dr, error) = NoizuOPS.extract_doc(revised_draft)
+            rr = textwrap.dedent(f""" 
+## Draft {cur_rev}
+{dc}
+            
+## Revision History
+{dr}
+---------------------------
+            """)
+            NoizuOPS.write_markdown(f"Revision {cur_rev}", rr, True, False)
+
+            if error:
+                dc = dc2
+                dr = dr2
+            dc2 = dc
+            dr2 = dr
+
+            dr3 = dr2 or "\n"
+            formatted_draft = textwrap.dedent(f""" 
+````````document
+{dc2}
+````````
+
+````````revisions
+{dr3}
+````````
+            """)
+            # Review Draft
+            r = self.review_prompt()
+            r2 = r.quick_append(formatted_draft, f"! noizu-review {cur_rev}:{max_rev}\n")
+
+            s = Status(f"Reviewing - rev{cur_rev} of max {max_rev}", console=console)
+            s.start()
+            (inner_model, inner_dg) = self.revise_tree.digest(r2, r2.content.agent, self.session)
             inner_meta = NoizuOPS.model_shim("Meta Review", inner_model, inner_dg, {"temperature": reviewer_temp})
             mn = inner_meta.choices[0].message.content
 
             editor_temp = editor_temp - temp_decr
+            if editor_temp < 0.1:
+                editor_temp = 0.1
             reviewer_temp = reviewer_temp - temp_decr
+            if reviewer_temp < 0.1:
+                reviewer_temp = 0.1
+            temp_decr = temp_decr - 0.02
+            if temp_decr < 0.01:
+                temp_decr = 0.01
             cur_rev = cur_rev + 1
-            (revise_flag, prior_draft) = NoizuOPS.revise_response(revision, inner_meta)
+            (revise_flag, prior_draft, mblock) = NoizuOPS.revise_response(revision, inner_meta, cur_rev, max_rev)
+            meta_blocks = meta_blocks + [mblock]
+            s.stop()
 
         if self.verbose:
             if revised:
@@ -779,9 +1327,12 @@ class NoizuOPS:
                 ## 3. Final Response
                 {revision_notes}            
             """)
+            """
             em = escaped_text = html.escape(m)
+            """
+            em = m
             mo = rich.markdown.Markdown(em, justify="left")
-            console.print(mo)
+
             if initial_response != revised_draft:
                 diff_lines = difflib.unified_diff(initial_response, prior_draft)
                 revision_notes = "[REVISION NOTES]"
@@ -800,19 +1351,31 @@ class NoizuOPS:
                 console.print(m1)
 
         # Prep final response - (omit) internal Edits
-        h.content.content = textwrap.dedent(f"""
-\n
-* Revision: {cur_rev} 
-\n
+        """
+        if revised:
+            NoizuOPS.write_markdown(f"Final Draft", prior_draft)
+        """
 
+        (dc,dr, error) = NoizuOPS.extract_doc(revised_draft)
+        response.content = textwrap.dedent(dc)
+        query.append_active(ConversationNode(response))
+        return dc, dr, meta_blocks, error
 
-{revised_draft}
-        """)
-
-
-        h.children = []
-        h.active = None
-        return h
+def gen_diff(a,b):
+    diff_lines = difflib.unified_diff(a, b)
+    diff = ""
+    for line in diff_lines:
+        if line.startswith("---") or line.startswith("+++"):
+            diff += line + "\n"
+        elif line.startswith("@@"):
+            diff += line + "\n"
+        elif line.startswith("+"):
+            diff += "\033[92m" + line[1:] + "\033[0m"
+        elif line.startswith("-"):
+            diff += "\033[91m" + line[1:] + "\033[0m"
+        else:
+            diff += line
+    return diff
 
 def shell_command(command):
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
@@ -820,6 +1383,18 @@ def shell_command(command):
     return output.decode().strip(), error.decode().strip()
 
 def init(session_name):
+    """
+    Debugging regex
+
+
+    mm = "meta-note:"
+    my_string = '````yaml asdfadfasdf\nmeta-note: match  ```yaml \n\ninner ``` ```` ```yaml two meta-note: 2 ```'
+    matches = re.findall(fr'(```+)yaml(.*{mm}.*?)\1', my_string, re.DOTALL)
+    print(matches)  # Output: [('````', ' asdfadfasdf  ````yaml inner ```` ```` ')]
+    """
+
+
+
     script_dir = os.path.dirname(os.path.abspath(__file__))
     noizu_dir = os.path.dirname(script_dir)
     config_file = os.path.join(noizu_dir, "config/system_config.yml")
@@ -832,13 +1407,48 @@ def init(session_name):
     log_date = ts.strftime("%Y-%m-%d")
     log_time = ts.strftime("%H%M%S")
     log_dir = os.path.join(log_root, log_date)
-    ts_session_name = os.path.normpath(log_time + "-" + session_name)
+    ts_session_name = log_time + "-" + session_name
+    ts_session_name = ts_session_name.replace(' ', '_')
+    ts_session_name = os.path.normpath(ts_session_name)
     session_log_dir = os.path.join(log_dir, ts_session_name)
+
     os.makedirs(session_log_dir, exist_ok=True)
 
     log_file = os.path.join(session_log_dir, f"{ts.timestamp()}-noizu-ops.log")
+    log_file = os.path.normpath(log_file)
+
+
+    global response_file
+    response_file = os.path.join(session_log_dir, f"{ts.timestamp()}-noizu-ops.session")
+    response_file = os.path.normpath(response_file)
+    """
+    print(f"SAVE TO: {response_file}")
+    """
+
     logging.basicConfig(filename=log_file, level=logging.DEBUG, format='%(asctime)s %(levelname)s: %(message)s')
     return config
+
+def multi_line_prompt(prompt, instruction = False):
+    c = ""
+    if instruction:
+        print("hit CTRL-D or type done() to finish multi-line input:")
+    print(prompt)
+    loop = True
+    try:
+        while loop:
+            line = input()
+            if line == "done()":
+                loop = False
+            else:
+                c = c + "\n" + line
+    except EOFError:
+        loop = False
+    c = c.strip("\n")
+    c = c.strip(" ")
+    return c
+
+
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -853,7 +1463,7 @@ def main():
     """
     Interactive Session
     """
-    interactive = False
+    interactive = True
     interactive_disabled = False
     if args.interactive:
         interactive = args.interactive != 'false'
@@ -888,13 +1498,9 @@ def main():
     """
     query = args.query
     if not query:
-        query = Prompt.ask("What is your query")
+        query = multi_line_prompt("What is your query?", True)
 
     session_name = session_name or query
-
-    """ 
-    Trim Session Name
-    """
     if len(session_name) > 64:
         session_name = session_name[:61] + "..."
 
@@ -907,8 +1513,13 @@ def main():
     if args.mode:
         mode = args.mode
 
+    """
+    TODO - determine if we should call nb or ops based on query using a model that reviews request.
+    """
+
     """ (self, session, config, mode = None, nb = False, interactive = False) """
     chat = NoizuOPS(session_name, config, mode, knowledge_base, interactive, verbose)
+    NoizuOPS.write_markdown("Query:", query, True, False)
     chat.begin(query)
 
 
