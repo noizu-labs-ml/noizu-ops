@@ -1,0 +1,37 @@
+config:
+  required: true
+  version: 0.1.0
+  last-update: null
+  editor: vim
+cpu_info:
+  cpu_count: null
+  cpu_freq: null
+  cpu_percent: null
+credentials:
+  model: null
+  openai_key: null
+disk_info:
+  disk_percent: null
+  free_disk_space: null
+  total_disk_space: null
+  used_disk_space: null
+ram_info:
+  available_memory: null
+  memory_percent: null
+  total_memory: null
+  used_memory: null
+system_info:
+  os_name: unknown
+  os_release: unknown
+  os_type: unknown
+  os_version: unknown
+user_info:
+  current_user: user
+  email: user@localhost
+  name: New User
+  skill_level: 3 - Advanced
+  tailor_prompt: "\n    Hello Everyone, I am looking forward to working with you!\
+    \ Please do you best to guide and assist me in maintaining this system and finding\
+    \ cool and useful information and online resources!\n    "
+  user_groups:
+  - user

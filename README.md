@@ -1,4 +1,4 @@
-noizu-help
+noizu-ops
 ============================
 Simple interactive chat-gpt console session
 with markdown formatted output and ability to commands as needed. 

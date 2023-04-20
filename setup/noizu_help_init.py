@@ -2,11 +2,14 @@
 
 import os
 import platform
+import datetime
 import psutil
 import yaml
 import getpass
 import grp
 import subprocess
+import rich.console
+
 
 
 
@@ -92,14 +95,27 @@ def get_bsd_version():
     return None
 
 def system_info():
+    rich.print("""
+    [bold yellow]:information_desk_person: Hello this is Noizu-OPs, lets setup your system.[/bold yellow]   
+    ---------------------------------------------------
+    In order to tailor my responses to your devops experience level and 
+    operating system we will scan your system to determine your OS, ram, 
+    and other basic details. 
+    
+    :see_no_evil: Currently no information is sent to our servers, all of your data remains under ~/.noizu-ops/.
+    
+    But first let's get some details about you!
+    
+    
+    
+    """)
+
     system_info = {
         "os_type": platform.system(),
         "os_release": platform.release(),
         "os_version": platform.version(),
         "os_name": os.name,
     }
-
-
 
     if system_info["os_type"] == "Linux":
         system_info["linux_info"] = get_linux_distro()
@@ -168,6 +184,12 @@ def system_info():
 
     # Combine all information
     system_config = {
+        "config": {
+            "required": False,
+            "version": "0.1.0",
+            "last-update": datetime.datetime.now(),
+            "editor": "vim"
+        },
         "system_info": system_info,
         "cpu_info": cpu_info,
         "ram_info": ram_info,
@@ -178,13 +200,34 @@ def system_info():
             "model": openai_model
         }
     }
+
+    rich.print(
+    """
+    [bold yellow]:information_desk_person: Fantastic, here's what we got. [/bold yellow]    
+    -------------------------
+    """)
+
+    console = rich.console.Console()
+    md = f"""
+```yaml
+{yaml.dump(system_config, sort_keys=False)}
+```
+    """
+    console.print(rich.markdown.Markdown(md, justify="left"))
+
+    rich.print(
+    """
+    you can edit your saved settings by opening `~/.noizu-ops/user-settings.yml` or running `noizu-ops init`.\n\n\n\n
+    """)
     return system_config
 
 def update_config(si):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     noizu_dir = os.path.dirname(script_dir)
-    config_dir = os.path.join(noizu_dir, "config/")
-    config_file = os.path.join(config_dir, "system_config.yml")
+
+    os.makedirs(os.path.join(os.path.expanduser('~'), ".noizu-ops"), exist_ok=True)
+    config_dir = os.path.join(os.path.expanduser('~'), ".noizu-ops")
+    config_file = os.path.join(config_dir, "user-settings.yml")
 
     # Create the directory if it doesn't exist
     if not os.path.exists(config_dir):
@@ -193,10 +236,11 @@ def update_config(si):
     # Write the information to a YAML file
     with open(config_file, 'w') as file:
         yaml.dump(si, file)
+    return si
+
 def main():
     si = system_info()
     update_config(si)
 
 if __name__ == "__main__":
     system_config = main()
-

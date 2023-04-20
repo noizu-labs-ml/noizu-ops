@@ -19,7 +19,7 @@ class RunSystemInfo(Command):
         noizu_help_init.update_config(si)
 
 setup(
-    name="noizu-help",
+    name="noizu-ops",
     version="0.1.0",
     packages=find_packages(),
     cmdclass={
@@ -30,12 +30,12 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "noizu-help = noizu_help.bin.noizu_help:main",
+            "noizu-ops = noizu_ops.bin.noizu_ops:main",
         ],
     },
     author="Keith Brings",
     author_email="keith.brings@noizu.com",
-    description="A simple script to interact with GPT and execute shell commands",
+    description="Interactive terminal assistant, log sessions, generate todo / step instructions, apply steps , query system status for troubleshooting., etc. (wip)",
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers - Sandbox/Dev Setup",

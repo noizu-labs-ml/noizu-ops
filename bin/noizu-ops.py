@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 import os
-import sys
+import atexit
+import time
+import threading
+import queue
 import re
+import json
 import textwrap
 import subprocess
 import datetime
@@ -9,26 +13,40 @@ import openai
 import argparse
 import rich.markdown
 import rich.console
-import markupsafe
-import html
 import difflib
-from rich.console import Console
-from rich.prompt import Prompt
-from rich.text import Text
+import curses
+from slugify import slugify
 from rich.status import Status
 from rich.style import Style
-from getpass import getpass
-from pathlib import Path
-from rich.markdown import Markdown
+from rich.prompt import Confirm
+from rich.prompt import Prompt
+from rich.control import Control
+import readline
 import logging
 import yaml
 
 """ 
 Setup Environment 
 """
-console = rich.console.Console()
+"""
+We aught include a config setting
+"""
+histfile = os.path.join(os.path.expanduser("~"), "./noizu-ops/.ch")
+try:
+    readline.read_history_file(histfile)
+    # default history len is -1 (infinite), which may grow unruly
+    readline.set_history_length(1000)
+except FileNotFoundError:
+    pass
+atexit.register(readline.write_history_file, histfile)
 
+console = rich.console.Console(record=True)
+status = Status("Thinking...", console=console)
+global_last_prompt = None
+input_seq = 0
 response_file = None
+recent_response_file = None
+prompt_file = None
 
 """
 Represent Chat Message
@@ -163,6 +181,21 @@ class ConversationNode:
         node.add_child(nn)
         return nn
 
+    def quick_revise(self, content, prefix=None, type="query", role="user", agent="GPT-N"):
+        node = self
+        p = None
+        while node.active is not None:
+            p = node
+            node = node.children[node.active]
+
+        nn = ConversationNode(Msg(agent=agent, prefix=prefix, type=type, role=role, content=content))
+        if p:
+            p.add_child(nn)
+        else:
+            # wrong but fine for now.
+            node.add_child(nn)
+        return nn
+
     def active_chat(self):
         node = self
         p = [(node.path, node.content)]
@@ -215,6 +248,9 @@ class ConversationNode:
 class NoizuOPS:
 
     def __init__(self, session, config, mode = None, nb = False, interactive = False, verbose = False):
+        self.threadQ = queue.Queue()
+        self.threadL = threading.Lock()
+        self.current_draft = None
         self.chat_tree = None
         self.revise_tree = None
         self.edit_tree = None
@@ -242,12 +278,7 @@ class NoizuOPS:
             -------------------------
             {textwrap.indent(output, "   ", lambda l: True)}
             """)
-
-            """
-            escaped_text = html.escape(m)
-            """
-            escaped_text = m
-            mo = rich.markdown.Markdown(escaped_text, justify="left")
+            mo = rich.markdown.Markdown(m, justify="left")
             console.print(mo)
         else:
             m = textwrap.dedent(f"""            
@@ -255,86 +286,174 @@ class NoizuOPS:
             -------------------------
             {textwrap.indent(error, "   ", lambda l: True)}
             """)
-
-            """
-                        escaped_text = html.escape(m)
-            """
-            escaped_text = m
-            mo = rich.markdown.Markdown(escaped_text, justify="left")
+            mo = rich.markdown.Markdown(m, justify="left")
             console.print(mo, style=Style(color="magenta"))
 
     @staticmethod
     def write_markdown(header,m, record = False, output = True):
         m = textwrap.dedent(f"""
 
-{header}
+{header} | {datetime.datetime.now()}
 -----------------------------
-
 {m}
-
-
 
         """)
 
-        if record and response_file:
-            with open(response_file, 'a') as f:
-                f.write(m)
+        if record:
+            if response_file:
+                with open(response_file, 'a') as f:
+                    f.write(m)
+            if recent_response_file:
+                with open(recent_response_file, 'a') as f:
+                    f.write(m)
 
         if output:
-            """
-            escaped_text = html.escape(m)
-            """
-            escaped_text = m
-            mo = rich.markdown.Markdown(escaped_text, justify="left")
+            mo = rich.markdown.Markdown(m, justify="left")
             console.print(mo)
 
-
+    def off_thread(self, user_input, revise, q):
+        r = self.query_gpt(user_input, revise)
+        q.put(r)
 
     def begin(self, query):
-        (doc,rev,blocks,error) = self.query_gpt(query)
-        fm = ""
-        for block in blocks:
-            if block:
-                fm = fm + "# Block\n\n" + block
+        prompt_n = 0
+        curq = query
+        revise = False
+        q = queue.Queue()
 
-
-        rr = textwrap.dedent(f""" 
-{doc}            
-## Revision History
-{rev}
-
-[META BLOCK HISTORY]
----------------------
-#{fm}
-            """)
-
-        NoizuOPS.write_markdown("NoizuOPS:", rr, True)
         if self.interactive:
             while True:
                 try:
-                    """
-                    user_input = Prompt.ask("<<<", )
-                    user_input = input("<<<:\n")
-                    """
-                    user_input = multi_line_prompt("<<<\n")
+                    if not curq:
+                        (user_input, done) = multi_line_prompt("<<<\n", self.config, False, revise)
+                    else:
+                        user_input = curq
+                        done = False
+                    curq = None
+
+                    if done:
+                        rich.print(f"\n\n[bold green] Bye for now :water_wave:[/bold green]\n[italic yellow]You may review your session at `{response_file}`[/italic yellow]\n\n")
+                        exit()
                     if user_input.startswith("!"):
                         command = user_input[1:].strip()
                         output, error = shell_command(command)
                         NoizuOPS.write_shell(command, output, error)
                     else:
-                        (doc,rev,error) = self.query_gpt(user_input)
-                        rr = textwrap.dedent(f""" 
+                        rich.print(f"[bold gray]:joy_cat: Your Prompt({prompt_n}): >>>[/bold gray]\n[italic yellow]{user_input}[/italic yellow]")
+
+                        query_thread = threading.Thread(target=self.off_thread, args=(user_input, revise, q,))
+                        query_thread.start()
+                        revise = False
+
+
+                        """
+                        Allow halt/resubmit at user request
+                        """
+                        while True:
+                            try:
+                                status.start()
+                                try:
+                                    """
+                                    @TODO - hookup prompt queries by adding a second queue thread to listen on. once user responds push back up to process and ammend to message.
+                                    """
+                                    query_result = q.get(block=False)
+                                except queue.Empty:
+                                    if not query_thread.is_alive():
+                                        rich.print("[bold red]:warning::warning:FATAL THREAD ERROR[/bold red]")
+                                        exit(1)
+                                    query_result = None
+                                if query_result:
+                                    status.stop()
+                                    (doc,rev, _, error) = query_result
+                                    rr = textwrap.dedent(f""" 
 {doc}            
 ## Revision History
 {rev}
                             """)
-                        NoizuOPS.write_markdown("NoizuOPS:", rr, True)
+                                    NoizuOPS.write_markdown("NoizuOPS:", rr, True)
+                                    prompt_n = prompt_n + 1
+                                    break
+                                else:
+                                    time.sleep(1)
 
+                            except KeyboardInterrupt as interrupt:
+                                with self.threadL:
+                                    status.stop()
+                                    c = Prompt.ask("Interrupt?", choices=["exit","revise","continue","view","draft"], default="exit")
+                                    """
+                                    Over looking some state locking logic necessary to detail with open connections, etc..
+                                    """
+                                    if c == "exit":
+                                        self.threadQ.put(interrupt)
+                                        exit(1)
+                                    elif c == "revise":
+                                        self.threadQ.put(interrupt)
+                                        revise = True
+                                        break
+                                    elif c == "continue":
+                                        "NOP"
+                                    elif c == "draft" or c == "view":
+                                        if self.current_draft:
+                                            ((d_cur_rev,d_cur_stage), d_doc, d_rev, d_meta) = self.current_draft
+
+                                            draft_commentary = None
+                                            draft_revisions = None
+                                            if d_rev:
+                                                draft_revisions = "\n".join(rev for rev in d_rev)
+                                            if d_meta:
+                                                draft_commentary = "\n".join(d_meta for rev in d_rev)
+
+                                            rr = textwrap.dedent(f""" 
+{d_doc}            
+
+## Revision History
+{draft_revisions}
+
+## Meta 
+{draft_commentary}
+    """)
+                                            if c == "view":
+                                                NoizuOPS.write_markdown(f"NoizuOPS <DRAFT PREVIEW> rev={d_cur_rev}, step={d_cur_stage}", rr, False)
+                                                rich.print(
+                                                    """
+
+                                                    [bold yellow]:information_desk_person: Here you go[/bold yellow]    
+                                                    -------------------------
+                                                    By the way, the process is still running, we'll let you know when all revisions are complete.
+                                                    """)
+                                            else:
+                                                NoizuOPS.write_markdown(f"NoizuOPS <early exit> rev={d_cur_rev}, step={d_cur_stage}", rr, True)
+                                                prompt_n = prompt_n + 1
+
+                                                c2 = Prompt.ask("[bold yellow]:information_desk_person: This is the current draft.[/bold yellow]?",
+                                                           choices=["keep","wait","revise","edit"],
+                                                           default="wait"
+                                                           )
+                                                if c2 == "revise":
+                                                    revise = True
+                                                    self.threadQ.put(interrupt)
+                                                    break;
+                                                elif c2 == "wait":
+                                                    "NOP"
+                                                elif c2 == "keep":
+                                                    "STATE CORRUPTION RISK HERE"
+                                                    self.threadQ.put(interrupt)
+                                                    break
+                                                elif c2 == "edit":
+                                                    rich.print("[bold yellow]:information_desk_person: Ooops, sorry the option to add edit notes, tweak prompt and continue is not ready yet.[/bold yellow]")
+                                                    "NOP"
+                                        elif c == "draft":
+                                            rich.print("[blue bold]... first draft pending. please try again[/blue bold]")
+                                            "NOP"
+                                print("solo")
+                                pass
                 except KeyboardInterrupt:
                     console.print("\nExiting...\n", style=Style(color="red"))
                     break
         print(f"\n\nSession Saved to {response_file}...\n\n")
-
+        dt = datetime.datetime.now()
+        console.save_svg(f"#{dt.timestamp()}.session.svg", theme=rich.terminal_them.MONOKAI)
+        console.save_html(f"#{dt.timestamp()}.session.html", theme=rich.terminal_them.MONOKAI)
 
     @staticmethod
     def syntax__self_reflection(inline = False):
@@ -411,7 +530,7 @@ class NoizuOPS:
             return m
         else:
             return Msg(agent="GPT-N", type="core", role="user", content=m)
-
+ 
     @staticmethod
     def syntax__interop(inline = False):
         m = textwrap.dedent("""
@@ -501,6 +620,8 @@ class NoizuOPS:
             =============================
             Your are GPT-N (GPT for work groups) you manage a coordinated cluster of simulated nodes/llms.
             You provide simulated agents. Which are defined by the user in following prompts based on the HTA 1.0 Syntax defined below.  
+            
+            * Always output valid yaml if asked to output yaml.
             
             Output: 
             - Do not add commentary before or after a simulated agent/tools response. 
@@ -652,6 +773,8 @@ class NoizuOPS:
             9.  ➣ 💡 Idea for improvement: "The website could be more user-friendly." ➣ 🚀 Implement the idea: "Redesign the website with better navigation." ➥
             10. ➣ 🤔 Confusing phrasing: "The book is on the table over there." (Ambiguous table reference) ➣ 📖 Rewrite for clarity: "The book is on the table near the window." ➥
             
+            
+            
             🔏 These annotations provide guidance on the purpose and intended outcome of each revision. 
             To backtrack/rescind a previous statement, you may additionally use: ␡ to erase the previous character. `␡㉛` to delete 31 characters, `␡㊿` 50, and so on. Similar to how netizens use ^d^d^d for correcting typos.
             
@@ -743,8 +866,10 @@ class NoizuOPS:
             
             
             ````````revisions            
-            # Revision 0 <-- one revision section per request/edit. append to previous list on subsequent edits.
-            - [...|list (briefly) changes made at request of meta-note instructions. If not changes made per note state why. Do not copy and past full changes, simply briefly list actions you took to address meta-notes and grading rubix if present.]
+            # Revision #{revision} <-- one revision section per request/edit.
+            - [...|list (very briefly, no more than 256 chars per request)
+             changes made at request of meta-note instructions. 
+             If no changes made per state why you were unable to comply.]
             # Revision #{revision}
             - [...]
             ````````              
@@ -771,7 +896,7 @@ class NoizuOPS:
             [SYSTEM]
             for this session you will simulate a command line tool `noizu-review`
             
-            # Callling 
+            # Calling 
             noizu-review is invoked by calling `! noizu-review {revision}:{max_revisions}` followed by a new line and the message to review.
             
             # Behavior
@@ -823,11 +948,11 @@ class NoizuOPS:
                     out_of: #{total points | % of grade}
                     note: failed to provide cons list.
                 [...| rest of rubix]
-               base_score: #{`base_score = sum([rubix[key]['points'] for key in rubix])`}
-               score: #{`base_score minus any additional deductions you feel appropriate to improve content`}
-               cut_off: #{pass_revision[revision]}
-               revise: #{bool: true if modified base_score is lower than cut off. `score <= pass_revision[revision]`}
-               [...|rest of meta-note yaml. must include notes section, notes section should list specific items that can be performed to increase score.]
+                base_score: #{`base_score = sum([rubix[key]['points'] for key in rubix])`}
+              score: #{`base_score minus any additional deductions you feel appropriate to improve content`}
+              cut_off: #{pass_revision[revision]}
+              revise: #{bool: true if modified base_score is lower than cut off. `score <= pass_revision[revision]`}
+              [...|rest of meta-note yaml. must include notes section, notes section should list specific items that can be performed to increase score.]
             ```
             ````                          
         """)
@@ -957,7 +1082,12 @@ class NoizuOPS:
         return Msg(agent="core", type="core", role="system", content=m)
 
     def review_prompt(self):
+        """
+        self.revise_tree = ConversationNode(NoizuOPS.master_prompt())
+        self.revise_tree.append_active(ConversationNode(self.session_prompt()))
+        """
         self.revise_tree = ConversationNode(NoizuOPS.syntax__self_reflection())
+
         """
         Disabling interactive until hooks to request user information/follow up added.
         if self.interactive:
@@ -968,6 +1098,10 @@ class NoizuOPS:
         return head
 
     def edit_prompt(self):
+        """
+        self.edit_tree = ConversationNode(NoizuOPS.master_prompt())
+        self.edit_tree.append_active(ConversationNode(self.session_prompt()))
+        """
         self.edit_tree = ConversationNode(NoizuOPS.syntax__self_reflection())
         head = self.edit_tree.append_active(ConversationNode(NoizuOPS.revise()))
         self.chat_tree = self.edit_tree
@@ -1006,19 +1140,15 @@ class NoizuOPS:
 
     @staticmethod
     def model_shim(event, model, dg, opts = {}):
-        """
-        digest = f"\n***********************************\n***********************************\n\ncalling {model}: \n"
-        for d in dg:
-            digest = digest + "\n-----------------\n[" + d['content'][0:128] + "..." + d['content'][-128:]  + "]\n"
-        digest = digest + "\n***********************************\n\n"
-        print(digest)
-
-        print(f"\n***********************************\n\ncalling {model}: \n"[{dg[-1]['content'][0:256]}]\n***********************************\n\n")
-        """
-
-        h = f"[{event}] Request: " + "{}"
+        errors = None
         request = {"model": model, "messages": dg}
-        logging.info(h.format(request))
+        """
+        Strip down response as we really only car about the last message.
+        """
+        h = f"""[OPENAI: {event}] Request: {json.dumps({"model": model, "messages": dg[-1]}, indent=2)}"""
+        logging.info(h)
+
+
         if "temperature" in opts:
             temperature = opts["temperature"]
         else:
@@ -1040,62 +1170,101 @@ class NoizuOPS:
             presence_penalty=presence_penalty
         )
 
-        h = f"[{event}] Response: " + "{}"
-        logging.info(h.format(completion))
-        return completion
+        h = f"[OPENAI: {event}] Response: " + "{}"
+        logging.info(h.format(json.dumps(completion, indent=2)))
+        """
+        blow up response for easy of of debugging
+        """
+        h = f"[OPENAI: {event}:body:{completion.choices[0].finish_reason}] Response: {completion.choices[0].message.content}"
+        if completion.choices[0].finish_reason != "stop":
+            errors = ("INCOMPLETE_RESPONSE", completion.choices[0].finish_reason)
+            logging.warning(h)
+        else:
+            logging.info(h)
 
 
-    def query_gpt(self, query_string):
-        if self.session_tree is None:
+        return completion,errors
+
+
+    def thread_raise(self):
+        spin_lock = False
+        with self.threadL:
+            try:
+                e = self.threadQ.get(block=False)
+            except queue.Empty:
+                pass
+            else:
+                "Temp logic. spin lock as we don't want to clean up console data"
+                spin_lock = True
+        if spin_lock:
+            while True:
+                "HACK"
+                time.sleep(300)
+
+    def query_gpt(self, query_string, prompt_revision):
+        if self.chat_tree is None:
             self.initial_prompt()
+        else:
+            self.session_tree = self.chat_tree
+
+        if prompt_revision:
+            self.session_tree.append_active
+
         (target, query) = self.query_constructor(query_string)
         (model, dg) = self.session_tree.digest(query, target, self.session)
-        s = Status("Processing Query", console=console)
-        s.start()
-        completion = NoizuOPS.model_shim("User Query", model, dg, {"temperature": 0.1})
-        s.stop()
+        self.thread_raise()
+        status.update("Processing Query")
+        status.start()
+        (completion, e) = NoizuOPS.model_shim("User Query", model, dg, {"temperature": 0.1})
+        self.thread_raise()
+        status.stop()
         return self.reflect_first(completion, query)
 
     @staticmethod
     def extract_yaml(block, body):
         b = []
         r = []
-        for (i, i2, yaml_str) in re.findall(fr'(```+)(yaml.*?)({block}.*?)\1', body, re.DOTALL):
+        for (i, i2, yaml_str,_) in re.findall(fr'(```+)(yaml.*?)({block}.*?)(\1|$)', body, re.DOTALL):
             """
             print("***********************************\n\nATTEMPT PARSE: [" + yaml_str + "]\n***********************************\n\n")
             """
-            b = b + [yaml.safe_load(yaml_str.rstrip("`"))]
-            r = r + [i + i2 + yaml_str + i]
+            try:
+                b = b + [yaml.safe_load(yaml_str.rstrip("`"))]
+                r = r + [i + i2 + yaml_str + i]
+            except Exception as e:
+                rich.print(":warning: [bold red] Yaml Parsing error [/bold red]")
+                print(f"Parse Error: {yaml_str}, {e}")
+
         if len(b) > 0:
             return b,r
         else:
             return None, None
 
     @staticmethod
-    def extract_doc(body):
+    def extract_doc(body, fallback, suppress = False):
         doc = None
         revisions = None
         meta_group = None
         error = False
 
-        for (i, rev_str) in re.findall(fr'(```+)revisions(.*?)\1', body, re.DOTALL):
-            revisions = rev_str
-            body = body.replace(i + "revisions" + rev_str + i, "")
+        for (i, rev_str, i2) in re.findall(fr'(```+)revisions(.*?)(\1|$)', body, re.DOTALL):
+            body = body.replace(i + "revisions" + rev_str + i2, "")
+            revisions = rev_str.rstrip("`").strip()
 
         # Strip Errant Meta
-        for (i, meta) in re.findall(fr'(```+)meta-group(.*?)\1', body, re.DOTALL):
+        for (i, meta, i2) in re.findall(fr'(```+)meta-group(.*?)(\1|$)', body, re.DOTALL):
             meta_group = meta
-            body = body.replace(i + "meta-group" + rev_str + i, "")
+            body = body.replace(i + "meta-group" + meta + i2, "")
             print("FORMAT-ERROR: META GROUP", meta_group)
 
-        for (i, doc_str) in re.findall(fr'(```+)updated_document(.*?)\1', body, re.DOTALL):
-            doc = doc_str
+        for (i, doc_str, i2) in re.findall(fr'(```+)updated_document(.*?)(\1|$)', body, re.DOTALL):
+            doc = doc_str.rstrip("`").strip()
         if doc is None:
-            for (i, odoc_str) in re.findall(fr'(```+)original_document(.*?)\1', body, re.DOTALL):
+            for (i, odoc_str, i2) in re.findall(fr'(```+)original_document(.*?)(\1|$)', body, re.DOTALL):
                 print("ORIGINAL DOC RETURNED")
-                doc = odoc_str
+                doc = odoc_str.rstrip("`").strip()
         else:
-            for (i, odoc_str) in re.findall(fr'(```+)original_document(.*?)\1', body, re.DOTALL):
+            for (i, odoc_str,i2) in re.findall(fr'(```+)original_document(.*?)(\1|$)', body, re.DOTALL):
                 diff = gen_diff(doc, odoc_str)
                 diff = "DIFF\n=====================================\n\n" + diff
                 m1 = rich.markdown.Markdown(diff, justify="left")
@@ -1104,67 +1273,95 @@ class NoizuOPS:
 
 
         if doc is None:
-            error = True
-            doc = body
+            if fallback:
+                if not suppress:
+                    rich.print(f"FORMATTING ERROR: NO DOC IN RESPONSE ...")
+                    NoizuOPS.write_markdown("[FORMAT ERROR] - no doc",body, True, False)
+                    logging.warning(f"[EDITOR:response] Malformed {body}")
+                error = True
+                doc = fallback
+
         return doc, revisions, error
 
     @staticmethod
-    def revise_response(comp,meta, revision, max_revisions):
+    def revise_response(comp,meta, revision, max_revisions, prior_draft = None, suppress = False):
         flag = False
+
+        """
+        Noizu OPS/Editor Response, strip meta-notes, force formatting.
+        """
         am = comp.choices[0].message.content
-        """
-        print("IN------", am)
-        """
         b = None
         (b1,r1) = NoizuOPS.extract_yaml('meta-note:', am)
         if r1:
             for r in r1:
                 am = am.replace(r, "")
+        if b1:
+            for x in b1:
+                if x and "meta-note" in x and "revise" in x["meta-note"] and x["meta-note"]["revise"]:
+                    flag = True
 
-        if am and "revise: true" in am:
-            flag = True
         if revision == 0 and b1:
             flag = True
 
+        """
+        REVIEWER COMMENTS
+        """
         b2 = None
         if meta:
             b2,_ = NoizuOPS.extract_yaml('meta-note:', meta.choices[0].message.content)
-            if "revise: true" in meta.choices[0].message.content:
-                flag = True
-            if b2 is None:
-                console.print(f"RAW REVIEW RESPONSE: [{meta}]")
+            if b2:
+                if revision == 0:
+                    flag = True
+                for x in b2:
+                    if "meta-note" in x:
+                        if "revise" in x["meta-note"] and x["meta-note"]["revise"]:
+                            flag = True
+                        if "score" in x["meta-note"] and x["meta-note"]["score"] < (100-2*revision):
+                            """ GPT is horrible at math"""
+                            flag = True
+                        if flag:
+                            """ Insure review occurs, despite false passes from noizu-reviewer """
+                            x["meta-note"]["revise"] = True
+            else:
+                console.print(f"RAW REVIEW RESPONSE: [{meta.choices[0].message.content}]")
 
-        meta = ""
-        if flag:
-            b1 = b1 or []
-            b2 = b2 or []
-            b = b2 + b1
+        brief_meta = ""
+        extended_meta = ""
+
+
+
+
+        if b1 or b2:
+            b = (b2 or []) + (b1 or [])
             if b:
-                meta = "\n\n````meta-group\n"
+                brief = b2 or b1
+                brief_meta = "\n\n````meta-group\n"
                 for yb in b:
-                    meta = meta + "```yaml\n"
-                    meta = meta + yaml.dump(yb)
-                    meta = meta + "\n\n```\n\n"
-                meta = meta + "````"
-        (doc, rev, error) = NoizuOPS.extract_doc(am)
+                    brief_meta = brief_meta + "```yaml\n"
+                    brief_meta = brief_meta + yaml.dump(yb)
+                    brief_meta = brief_meta + "\n\n```\n\n"
+                brief_meta = brief_meta + "````"
+
+
+                extended_meta = "\n\n````meta-group\n"
+                for yb in b:
+                    extended_meta = extended_meta + "```yaml\n"
+                    extended_meta = extended_meta + yaml.dump(yb)
+                    extended_meta = extended_meta + "\n\n```\n\n"
+                extended_meta = extended_meta + "````"
+
+        (doc, rev, error) = NoizuOPS.extract_doc(am, prior_draft, suppress)
         f = f"""
 ````````document
 {doc}
 ````````   
         """
-        if rev is not None:
-            r = f"""
 
-````````revisions
-{rev}
-````````
-      """
-            f = f + r
-        f = f + meta
-        """
-        print("OUT------", f)
-        """
-        return flag, f, meta
+        if flag:
+            f = f + brief_meta
+
+        return flag, (doc, f), rev, extended_meta
 
     def reflect_first(self, completion, query):
         response = Msg(
@@ -1203,20 +1400,25 @@ class NoizuOPS:
 
 
         meta_blocks = []
+        revision_blocks = []
         completion.choices[0].message.content = prep
-        (_, draft, _) = NoizuOPS.revise_response(completion, None, cur_rev, max_rev)
+        (_, (fallback, draft), _,_) = NoizuOPS.revise_response(completion, None, cur_rev, max_rev, prep, True)
+        self.current_draft = ((0,0), fallback, None, None)
 
         """
         #----------------------------
         # First Draft - Review
         #----------------------------
         """
+
         h2 = h.quick_append(draft, f"! noizu-review {cur_rev}:{max_rev}\n")
         (model, dg) = self.revise_tree.digest(h2, h2.content.agent, self.session)
-        s = Status("Reviewing", console=console)
-        s.start()
-        meta = NoizuOPS.model_shim("Meta Review", model, dg, {"temperature": 0.5})
-        s.stop()
+        self.thread_raise()
+        status.update("Reviewing")
+        status.start()
+        (meta,e) = NoizuOPS.model_shim("Meta Review", model, dg, {"temperature": 0.5})
+        self.thread_raise()
+        status.stop()
         meta_notes = meta.choices[0].message.content
         mn = meta_notes
 
@@ -1225,11 +1427,12 @@ class NoizuOPS:
         print("FIRST REVIEW", mn)
         Format for editor/check if revision needed.
         """
-        (revise_flag, draft, mblock) = NoizuOPS.revise_response(completion, meta, cur_rev, max_rev)
+        (revise_flag, (fallback, draft), _, mblock) = NoizuOPS.revise_response(completion, meta, cur_rev, max_rev, fallback, True)
         meta_blocks = meta_blocks + [mblock]
+        self.current_draft = ((0,1), fallback, revision_blocks, meta_blocks)
         prior_draft = draft
-        editor_temp = 0.6
-        reviewer_temp = 0.6
+        editor_temp = 1.0
+        reviewer_temp = 0.8
         temp_decr = 0.15
         revised = revise_flag
 
@@ -1238,26 +1441,33 @@ class NoizuOPS:
         dr2 = None
 
         while revise_flag and cur_rev < max_rev:
-            s = Status(f"Editing - rev{cur_rev} of max {max_rev}", console=console)
-            s.start()
+            self.thread_raise()
+            status.update(f"Editing - rev{cur_rev} of max {max_rev}")
+            status.start()
             """
             NoizuOPS.write_markdown(f"Revision Request {cur_rev}", prior_draft)
             """
             e = self.edit_prompt()
             e2 = e.quick_append(prior_draft, f"! noizu-edit {cur_rev}:{max_rev}\n\n")
             (model, dg) = self.edit_tree.digest(e2, e2.content.agent, self.session)
-            revision = NoizuOPS.model_shim(f"Revision {cur_rev}", model, dg, {"temperature": editor_temp})
-            revised_draft = revision.choices[0].message.content
-            s.stop()
+            (revision,e) = NoizuOPS.model_shim(f"Revision {cur_rev}", model, dg, {"temperature": editor_temp})
+            self.thread_raise()
+            if e:
+                rich.print(f":warning:[bold red]Edit Rev {cur_rev} Completion Error - {e}[/bold red]")
 
-            """
-            print("\n///////////////////////////////\nEDIT RESPONSE: ", revised_draft)
-            """
+            revised_draft = revision.choices[0].message.content
+            status.stop()
 
             """
             TODO detect malformed responses and alert.
             """
-            (dc,dr, error) = NoizuOPS.extract_doc(revised_draft)
+            (dc,dr, error) = NoizuOPS.extract_doc(revised_draft, fallback)
+            """
+            Reviewed - pending edit
+            """
+            self.current_draft = ((cur_rev,1), fallback, revision_blocks, meta_blocks)
+
+
             rr = textwrap.dedent(f""" 
 ## Draft {cur_rev}
 {dc}
@@ -1288,10 +1498,11 @@ class NoizuOPS:
             r = self.review_prompt()
             r2 = r.quick_append(formatted_draft, f"! noizu-review {cur_rev}:{max_rev}\n")
 
-            s = Status(f"Reviewing - rev{cur_rev} of max {max_rev}", console=console)
-            s.start()
+            status.update(f"Reviewing - rev{cur_rev} of max {max_rev}")
+            status.start()
             (inner_model, inner_dg) = self.revise_tree.digest(r2, r2.content.agent, self.session)
-            inner_meta = NoizuOPS.model_shim("Meta Review", inner_model, inner_dg, {"temperature": reviewer_temp})
+            (inner_meta,_) = NoizuOPS.model_shim("Meta Review", inner_model, inner_dg, {"temperature": reviewer_temp})
+            self.thread_raise()
             mn = inner_meta.choices[0].message.content
 
             editor_temp = editor_temp - temp_decr
@@ -1304,9 +1515,16 @@ class NoizuOPS:
             if temp_decr < 0.01:
                 temp_decr = 0.01
             cur_rev = cur_rev + 1
-            (revise_flag, prior_draft, mblock) = NoizuOPS.revise_response(revision, inner_meta, cur_rev, max_rev)
+            (revise_flag, (fallback, prior_draft), rblock, mblock) = NoizuOPS.revise_response(revision, inner_meta, cur_rev, max_rev, fallback)
             meta_blocks = meta_blocks + [mblock]
-            s.stop()
+            if rblock:
+                revision_blocks = revision_blocks + [rblock]
+            """
+            Edit - pending review
+            """
+            self.current_draft = ((cur_rev,0), fallback, revision_blocks, meta_blocks)
+
+            status.stop()
 
         if self.verbose:
             if revised:
@@ -1327,11 +1545,7 @@ class NoizuOPS:
                 ## 3. Final Response
                 {revision_notes}            
             """)
-            """
-            em = escaped_text = html.escape(m)
-            """
-            em = m
-            mo = rich.markdown.Markdown(em, justify="left")
+            mo = rich.markdown.Markdown(m, justify="left")
 
             if initial_response != revised_draft:
                 diff_lines = difflib.unified_diff(initial_response, prior_draft)
@@ -1356,10 +1570,12 @@ class NoizuOPS:
             NoizuOPS.write_markdown(f"Final Draft", prior_draft)
         """
 
-        (dc,dr, error) = NoizuOPS.extract_doc(revised_draft)
+        (dc,_, error) = NoizuOPS.extract_doc(revised_draft, fallback)
+        rf = "\n".join([str(i) for i in revision_blocks])
+
         response.content = textwrap.dedent(dc)
         query.append_active(ConversationNode(response))
-        return dc, dr, meta_blocks, error
+        return dc, rf, meta_blocks, error
 
 def gen_diff(a,b):
     diff_lines = difflib.unified_diff(a, b)
@@ -1382,7 +1598,24 @@ def shell_command(command):
     output, error = process.communicate()
     return output.decode().strip(), error.decode().strip()
 
-def init(session_name):
+def config_valid(config):
+    """
+    Check if config is up-to-date: etc. check format, last updated, etc. etc.
+    """
+    config_error = False
+    if 'config' in config and 'required' in config['config'] and config['config']['required']:
+        config_error = True
+    if 'user_info' not in config:
+        config_error = True
+
+    if config_error:
+        console.bell()
+        rich.print(":prohibited:[bold red] Your System is not Configured.\n[/bold red]You must run [bold yellow]`noizu-ops init`[/bold yellow] to gather basic system and config info.\n\n")
+        if Confirm.ask("Would you like to run setup now?", default=True):
+            config = setup_config()
+    return config
+
+def load_config():
     """
     Debugging regex
 
@@ -1392,63 +1625,195 @@ def init(session_name):
     matches = re.findall(fr'(```+)yaml(.*{mm}.*?)\1', my_string, re.DOTALL)
     print(matches)  # Output: [('````', ' asdfadfasdf  ````yaml inner ```` ```` ')]
     """
-
-
+    config = {}
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
     noizu_dir = os.path.dirname(script_dir)
-    config_file = os.path.join(noizu_dir, "config/system_config.yml")
-    config = {}
+
+    """
+    setup config/log dir
+    """
+    os.makedirs(os.path.join(os.path.expanduser('~'), ".noizu-ops"), exist_ok=True)
+
+    """
+    Default Config - with fallback to globals.
+    """
+    config_file = os.path.join(os.path.expanduser('~'), ".noizu-ops/user-settings.yml")
+    if not os.path.exists(config_file):
+        config_file = os.path.join(noizu_dir, "config/system_config.yml")
+    if not os.path.exists(config_file):
+        config_file = os.path.join(noizu_dir, "config/system_config.fallback.yml")
+
     with open(config_file, 'r') as file:
         config = yaml.safe_load(file)
 
-    log_root = os.path.join(noizu_dir, "logs")
+    return config_valid(config)
+
+def init_logging(session_name, config):
+    if 'config' in config and 'log_dir' in config['config'] and config['config']['log_dir']:
+        log_root = config['config']['log_dir']
+    else:
+        log_root = os.path.join(os.path.expanduser('~'), ".noizu-ops/logs")
+
     ts = datetime.datetime.now()
     log_date = ts.strftime("%Y-%m-%d")
-    log_time = ts.strftime("%H%M%S")
+    log_time = ts.strftime("%H_%M_%S")
     log_dir = os.path.join(log_root, log_date)
     ts_session_name = log_time + "-" + session_name
-    ts_session_name = ts_session_name.replace(' ', '_')
-    ts_session_name = os.path.normpath(ts_session_name)
+    ts_session_name = slugify(ts_session_name)
     session_log_dir = os.path.join(log_dir, ts_session_name)
 
     os.makedirs(session_log_dir, exist_ok=True)
 
-    log_file = os.path.join(session_log_dir, f"{ts.timestamp()}-noizu-ops.log")
+    log_file = os.path.join(session_log_dir, "noizu-ops.log")
     log_file = os.path.normpath(log_file)
 
 
-    global response_file
-    response_file = os.path.join(session_log_dir, f"{ts.timestamp()}-noizu-ops.session")
+
+    global response_file, prompt_file, recent_response_file
+    response_file = os.path.join(session_log_dir, "noizu-ops.session")
     response_file = os.path.normpath(response_file)
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    noizu_dir = os.path.dirname(script_dir)
+    recent_response_file= os.path.join(noizu_dir, "current.session")
+    recent_log_file = os.path.join(noizu_dir, "current.log")
+
+    prompt_file = os.path.join(session_log_dir, ".noizu-ops.prompts")
+    prompt_file = os.path.normpath(prompt_file)
     """
     print(f"SAVE TO: {response_file}")
     """
 
+    if os.path.exists(recent_log_file):
+        os.remove(recent_log_file)
+    with open(log_file, 'a'):
+        pass
+    os.symlink(log_file, recent_log_file)
+
+
+
     logging.basicConfig(filename=log_file, level=logging.DEBUG, format='%(asctime)s %(levelname)s: %(message)s')
-    return config
 
-def multi_line_prompt(prompt, instruction = False):
+
+def multi_line_prompt__help(extended = False):
+    """
+    Todo write extended help/user instructions.
+    :param extended:
+    :return:
+    """
+    rich.print("""
+
+:information_desk_person: Hello this is Noizu-OPs.
+---------------------------------------------------------
+Enter your single line prompt for LLM system help or knowledge base response.
+
+For multi-line prompting use [bold yellow]CTRL-D[/bold yellow], [bold yellow]nano()[/bold yellow], or [bold yellow]vim()[/bold yellow] to enter a text editor.
+To exit with no prompt enter [bold red]done()[/bold red].
+
+:gemini: oh and try noizu-ops --nb to enter an interactive knowledge base!
+
+""")
+
+def multi_line_prompt(prompt, config, instruction = False, revise = True):
+    global global_last_prompt
+    if revise:
+        rich.print(f"[yellow]use up arrow to edit previous prompt[/yellow]")
     c = ""
+    done = False
     if instruction:
-        print("hit CTRL-D or type done() to finish multi-line input:")
-    print(prompt)
+        multi_line_prompt__help()
+    rich.print(f"[green]{prompt}[/green]")
     loop = True
-    try:
-        while loop:
+    flag_multi_line = False
+    editor = None
+    scratch_file = None
+    line = None
+    while loop:
+        try:
+
+
+            """
+            Revise Check
+            """
+            if revise:
+                if global_last_prompt:
+                    (revise_t,revise_d) = global_last_prompt
+                    if revise_t == "CONSOLE":
+                        readline.add_history(revise_d)
+                    if revise_t == "MULTI":
+                        (editor,scratch_file) = revise_d
+
+            if flag_multi_line:
+                flag_multi_line = False
+                global prompt_file, input_seq
+
+                if scratch_file is None:
+                    if prompt_file:
+                        scratch_file = f"{prompt_file}.{input_seq}"
+                    else:
+                        dt = datetime.datetime.now()
+                        scratch_file = os.path.join(os.path.expanduser('~'), f".noizu-ops/.tmp.prompt.{dt.timestamp()}")
+
+                if editor is None:
+                    if "config" in config and "editor" in config["config"]:
+                        editor = config["config"]["editor"]
+                    else:
+                        editor = "vim"
+
+                """
+                it would be nice to keep the same file, and track position, even letting the user edit gpt's responses. . . 
+                """
+                try:
+                    editor = editor.strip()
+                    input_seq = input_seq + 1
+                    subprocess.call([editor, scratch_file])
+                    with open(scratch_file, "r") as f:
+                        mli = f.read()
+                        mli = mli.lstrip()
+                        if mli == "":
+                            rich.print("[italic yellow]If you a finished type [bold red]done()[/bold red] to exit your session.[/italic yellow]")
+                        else:
+                            global_last_prompt = ("MULTI", (editor, scratch_file))
+                            return mli, False
+                except FileNotFoundError:
+                    """
+                    No prompt saved, go back to single line prompt.                        
+                    """
+                    rich.print("[bold red]Prompt not saved.[/bold red]\nIf you are finished type [bold red]done()[/bold red]  to exit your session, or try a single line prompt.")
             line = input()
-            if line == "done()":
-                loop = False
+            line = line.strip()
+            if line == "nano()":
+                editor = "nano"
+                flag_multi_line = True
+            elif line == "vim()":
+                editor = "vim"
+                flag_multi_line = True
+            elif line == "done()":
+                return None, True
+            elif line == "?" or line == "help()":
+                multi_line_prompt__help(True)
+            elif line == "":
+                rich.print("If you a finished type [bold red]done()[/bold red]  to exit your session.")
             else:
-                c = c + "\n" + line
-    except EOFError:
-        loop = False
-    c = c.strip("\n")
-    c = c.strip(" ")
-    return c
+                c = line
+                loop = False
+        except EOFError:
+            flag_multi_line = True
 
+    global_last_prompt = ("CONSOLE", c)
+    return c, False
 
-
+def setup_config():
+    import sys
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    noizu_dir = os.path.dirname(script_dir)
+    sys.path.append(os.path.join(noizu_dir,"setup"))
+    import noizu_help_init
+    si = noizu_help_init.system_info()
+    config = noizu_help_init.update_config(si)
+    rich.print("[bold green] All Done :flexed_biceps_medium-dark_skin_tone:. You may begin using noizu-ops now![/bold green]")
+    return config
 
 def main():
     parser = argparse.ArgumentParser()
@@ -1459,6 +1824,9 @@ def main():
     parser.add_argument('--interactive', help="Interactive Mode")
     parser.add_argument('--verbose', help="Verbose Mode")
     args = parser.parse_args()
+
+    if args.query == 'init':
+        setup_config()
 
     """
     Interactive Session
@@ -1493,18 +1861,24 @@ def main():
     else:
         session_name = args.query
 
+    config = load_config()
+
     """
     Initial Query
     """
     query = args.query
     if not query:
-        query = multi_line_prompt("What is your query?", True)
+        (query, done) = multi_line_prompt("What is your query?", config, True)
+
+    if done:
+        rich.print("[italic yellow]:ghost: alright keep your secrets then! see you next time[/italic yellow]")
+        exit(0)
 
     session_name = session_name or query
     if len(session_name) > 64:
         session_name = session_name[:61] + "..."
 
-    config = init(session_name)
+    init_logging(session_name, config)
 
     """
     Alternative Prompt
