@@ -20,6 +20,7 @@ class RunSystemInfo(Command):
 setup(
     name="noizu_ops",
     version="0.1.1",
+    url='https://github.com/noizu-labs-ml/noizu-ops',
     packages=find_packages(),
     package_data={
         'noizu_ops': ['config/*.yml']
