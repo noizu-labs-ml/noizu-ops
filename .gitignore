@@ -2,7 +2,7 @@ logs
 .idea
 noizu_help.egg-info/
 .envrc.secret
-.envrc.*
+.envrc.dev
 .direnv/
 *.gz
 dist/
@@ -11,3 +11,5 @@ current.session
 .ch
 noizu-ops.log
 current.log
+build/
+noizu_ops.egg-info/

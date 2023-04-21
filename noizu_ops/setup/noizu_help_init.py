@@ -94,6 +94,24 @@ def get_bsd_version():
         pass
     return None
 
+def cpu_info__count():
+    try:
+        psutil.cpu_count(logical=True)
+    except:
+        None
+def cpu_info__freq():
+    try:
+        psutil.cpu_freq().current
+    except:
+        None
+
+def cpu_info__percent():
+    try:
+        psutil.cpu_percent()
+    except:
+        None
+
+
 def system_info():
     rich.print("""
     [bold yellow]:information_desk_person: Hello this is Noizu-OPs, lets setup your system.[/bold yellow]   
@@ -128,26 +146,32 @@ def system_info():
 
     # Get CPU information
     cpu_info = {
-        "cpu_count": psutil.cpu_count(logical=True),
-        "cpu_freq": psutil.cpu_freq().current,
-        "cpu_percent": psutil.cpu_percent()
+        "cpu_count": cpu_info__count(),
+        "cpu_freq": cpu_info__freq(),
+        "cpu_percent": cpu_info__percent()
     }
 
     # Get RAM information
-    ram_info = {
-        "total_memory": round(psutil.virtual_memory().total / (1024.0 ** 3), 2),
-        "available_memory": round(psutil.virtual_memory().available / (1024.0 ** 3), 2),
-        "used_memory": round(psutil.virtual_memory().used / (1024.0 ** 3), 2),
-        "memory_percent": psutil.virtual_memory().percent
-    }
+    try:
+        ram_info = {
+            "total_memory": round(psutil.virtual_memory().total / (1024.0 ** 3), 2),
+            "available_memory": round(psutil.virtual_memory().available / (1024.0 ** 3), 2),
+            "used_memory": round(psutil.virtual_memory().used / (1024.0 ** 3), 2),
+            "memory_percent": psutil.virtual_memory().percent
+        }
+    except:
+        ram_info = None
 
     # Get disk information
-    disk_info = {
-        "total_disk_space": round(psutil.disk_usage('/').total / (1024.0 ** 3), 2),
-        "used_disk_space": round(psutil.disk_usage('/').used / (1024.0 ** 3), 2),
-        "free_disk_space": round(psutil.disk_usage('/').free / (1024.0 ** 3), 2),
-        "disk_percent": psutil.disk_usage('/').percent
-    }
+    try:
+        disk_info = {
+            "total_disk_space": round(psutil.disk_usage('/').total / (1024.0 ** 3), 2),
+            "used_disk_space": round(psutil.disk_usage('/').used / (1024.0 ** 3), 2),
+            "free_disk_space": round(psutil.disk_usage('/').free / (1024.0 ** 3), 2),
+            "disk_percent": psutil.disk_usage('/').percent
+        }
+    except:
+        disk_info = None
 
     # Get current user and groups
     current_user = getpass.getuser()
