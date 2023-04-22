@@ -1823,6 +1823,7 @@ def main():
     parser.add_argument('--mode', help="Alternative Master Prompt Directive")
     parser.add_argument('--interactive', help="Interactive Mode")
     parser.add_argument('--verbose', help="Verbose Mode")
+    parser.add_argument('--models', help="List Available Models")
     args = parser.parse_args()
 
     if args.query == 'init':
