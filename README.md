@@ -44,4 +44,6 @@ No data is currently shared with our servers.
 
 We will eventually add support for uploading sessions/articles to review/share on the cload as well as support for uploading custom docs for custom tools/server configs so that GPT may scan to answer queries about unique server setup for team members.
 
+# Example Session
 
+![2023-04-25_215317](https://user-images.githubusercontent.com/6298118/234322927-10ae29a3-4a79-478b-9571-e33002513bfe.jpg)
