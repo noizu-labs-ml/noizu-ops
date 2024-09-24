@@ -1,7 +1,0 @@
-openai==0.27.4
-rich==13.3.3
-MarkupSafe==2.1.2
-PyYAML==6.0
-python-slugify==8.0.1
-psutil==5.9.4
-
