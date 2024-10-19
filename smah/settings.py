@@ -95,5 +95,5 @@ class Settings:
         self.user.terminal_configure(console)
 
     def gui_configure(self):
-        # print("GUI MODE", self.args.gui)
+        print("GUI MODE", self.args.gui)
         self.terminal_configure()
