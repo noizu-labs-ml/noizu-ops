@@ -45,9 +45,9 @@ Other configurations include:
 
 ```mermaid
 graph TD;
-    A[Global Configuration (/etc/smah)] --> B[User-Specific Configuration (~/.smah/system-config.yaml)];
-    B --> C[Additional User Config (~/.smah/user-system-config.yaml)];
-    C --> D[User Profile (~/.smah/user-profile.yaml)];
+    A[Global Configuration] --> B[User-Specific Configuration];
+    B --> C[Additional User Config];
+    C --> D[User Profile];
 ```
 
 ---

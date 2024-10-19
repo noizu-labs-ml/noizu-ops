@@ -4,10 +4,15 @@ version = "0.1.0"
 description = ""
 authors = ["Keith Brings <keith.brings@noizu.com>"]
 readme = "README.md"
+package-mode = true
 
 [tool.poetry.dependencies]
 python = "^3.10"
 
+[tool.poetry.scripts]
+smah = "smah.smah:main"
+smah-pipe = "smah.smah_pipe:main"
+smah-monitor = "smah.smah_monitor:main"
 
 [build-system]
 requires = ["poetry-core"]
