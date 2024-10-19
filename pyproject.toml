@@ -13,6 +13,8 @@ openai = "^1.52.0"
 aiohttp = "^3.10.10"
 requests = "^2.32.3"
 pyyaml = "^6.0.2"
+keyboard = "^0.13.5"
+readchar = "^4.2.0"
 
 [tool.poetry.scripts]
 smah = "smah.smah:main"

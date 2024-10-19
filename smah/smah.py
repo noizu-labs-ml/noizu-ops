@@ -1,6 +1,9 @@
 import os
 import argparse
 import smah.smah_config
+import smah.smah_console
+from rich.console import Console
+
 
 def extract_args():
     parser = argparse.ArgumentParser(description="SMAH Command Line Tool")
@@ -9,9 +12,14 @@ def extract_args():
     args = parser.parse_args()
     return parser, args
 
+
+
+
+
 def main():
     parser, args = extract_args()
     config = smah.smah_config.Config(config=args.config)
+
     if not config.configured():
         config.configure()
     print (f"Configured: {config.version}")
