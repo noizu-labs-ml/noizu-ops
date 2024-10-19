@@ -2,28 +2,10 @@ import os
 import argparse
 from smah.config import config
 from rich.console import Console
-from rich.prompt import Confirm
 import textwrap
 from openai import OpenAI
 
-client = OpenAI(
-    # This is the default and can be omitted
-    api_key=os.environ.get("OPENAI_API_KEY"),
-)
-
-chat_completion = client.chat.completions.create(
-    messages=[
-        {
-            "role": "user",
-            "content": "Say this is a test",
-        }
-    ],
-    model="gpt-3.5-turbo",
-)
-
-
 console = Console()
-
 
 def extract_args():
     parser = argparse.ArgumentParser(description="SMAH - Smart as Hell CLI Tool")
@@ -39,7 +21,7 @@ def extract_args():
 
 
 def get_client(args, smahConfig: config.Config):
-    client = OpenAI(smahConfig.openai_api_key)
+    client = OpenAI(api_key=smahConfig.openai_api_key)
     return client
 
 def run_command(args, smahConfig: config.Config):
@@ -70,7 +52,7 @@ def run_command(args, smahConfig: config.Config):
         }
 
     ]
-    chat_completion = client.chat.completions.create(messages = thread, model="gpt4o")
+    chat_completion = client.chat.completions.create(messages = thread, model="gpt-4o")
     print(chat_completion.choices[0].message.content)
 
 
