@@ -8,11 +8,13 @@ package-mode = true
 
 [tool.poetry.dependencies]
 python = "^3.10"
+rich = "^13.9.2"
 
 [tool.poetry.scripts]
 smah = "smah.smah:main"
 smah-pipe = "smah.smah_pipe:main"
 smah-monitor = "smah.smah_monitor:main"
+smah-config = "smah.smah_config:main"
 
 [build-system]
 requires = ["poetry-core"]
