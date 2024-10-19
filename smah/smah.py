@@ -1,5 +1,10 @@
 import os
 import argparse
+import textwrap
+
+import rich
+from rich.markdown import Markdown
+
 from smah.settings import Settings
 
 def extract_args():
@@ -17,17 +22,11 @@ def main():
     if not(settings.is_configured()):
         settings.configure()
 
-
-    print("...")
-
-
-    # smah.smah_console.wip()
-
-    #
-    # if not config.configured():
-    #     config.configure()
-    # print (f"Configured: {config.version}")
-
-
-
+    if args.verbose > 2:
+        status = settings.status() or "[Error]"
+        p = "# Status\nCurrent System Status\n\n"
+        p +=  status or "N/A"
+        console = rich.console.Console()
+        p = Markdown(p)
+        console.print(p)
 

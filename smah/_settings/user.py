@@ -11,11 +11,11 @@ class User:
     YAML_VERSION = "0.0.1"
 
     @staticmethod
-    def version_supported(version):
-        if version is None:
+    def vsn_supported(vsn):
+        if vsn is None:
             return False
         else:
-            return version <= User.YAML_VERSION
+            return vsn <= User.YAML_VERSION
 
     def __init__(self, config_data):
         self.errors = []
@@ -27,19 +27,28 @@ class User:
             self.skill_level = None
             self.role = None
             self.about = None
-            self.version = None
+            self.vsn = None
         else:
             self.name = config_data["name"] if "name" in config_data else None
             self.skill_level = config_data["skill_level"] if "skill_level" in config_data else None
             self.role = config_data["role"] if "role" in config_data else None
             self.about = config_data["about"] if "about" in config_data else None
-            self.version = config_data["version"] if "version" in config_data else None
+            self.vsn = config_data["vsn"] if "vsn" in config_data else None
 
         if not self.errors:
             self.errors = None
 
         self.configured = self.is_configured()
 
+    def status(self):
+        status = f"""
+        - name: {self.name}
+        - role: {self.role}
+        - experience: {self.skill_level}
+        - about:
+        {textwrap.indent(self.about or "","  ")}
+        """
+        return textwrap.dedent(status).strip()
 
     def is_configured(self):
         if (self.configured is None):
@@ -62,7 +71,7 @@ class User:
             "skill_level": self.skill_level,
             "role": self.role,
             "about": self.about,
-            "version": self.version if self.version is not None else User.YAML_VERSION
+            "vsn": self.vsn if self.vsn is not None else User.YAML_VERSION
         }
 
     def prompt_name(self, console):
@@ -71,15 +80,16 @@ class User:
             return Prompt.ask(message)
         else:
             console.print(f"Name: {self.name}")
-            if Confirm.ask("correct?", default=False):
+            if Confirm.ask("correct?", default=True):
                 return self.name
             else:
-                return Prompt.ask(message)
+                return Prompt.ask(message, default = self.name)
 
     def prompt_skill_level(self, console):
         message = textwrap.dedent(
             """
             [bold green]What is your experience level?[/bold green]
+            0 - Novice
             1 - Beginner
             2 - Intermediate
             3 - Advanced
@@ -87,20 +97,30 @@ class User:
             """
         )
         levels = {
+            "0": "Novice",
             "1": "Beginner",
             "2": "Intermediate",
             "3": "Advanced",
             "4": "Expert"
         }
+        reverse_levels = {
+            "Novice": "0",
+            "Beginner": "1",
+            "Intermediate": "2",
+            "Advanced": "3",
+            "Expert": "4"
+        }
+
         if self.skill_level is None:
-            level =  Prompt.ask(message, choices=["1", "2", "3", "4"])
+            level =  Prompt.ask(message, choices=["0","1", "2", "3", "4"])
             return levels[level]
         else:
             console.print(f"Experience Level: {self.skill_level}")
-            if Confirm.ask("correct?", default=False):
+            if Confirm.ask("correct?", default=True):
                 return self.skill_level
             else:
-                level = Prompt.ask(message, choices=["1", "2", "3", "4"])
+                default_level = reverse_levels[self.skill_level] if self.skill_level in reverse_levels else None
+                level = Prompt.ask(message, choices=["1", "2", "3", "4"], default = default_level)
                 return levels[level]
 
     def prompt_role(self, console):
@@ -109,10 +129,10 @@ class User:
             return Prompt.ask(message)
         else:
             console.print(f"Role: {self.role}")
-            if Confirm.ask("correct?", default=False):
+            if Confirm.ask("correct?", default=True):
                 return self.role
             else:
-                return Prompt.ask(message)
+                return Prompt.ask(message, default=self.role)
 
     def prompt_about(self, console):
         message = "[bold green]Tell us about yourself[/bold green]"
@@ -120,7 +140,11 @@ class User:
             return Prompt.ask(message)
         else:
             console.print(f"About: {self.about}")
-            if Confirm.ask("correct?", default=False):
+            if Confirm.ask("correct?", default=True):
                 return self.about
             else:
-                return Prompt.ask(message)
+                a = Prompt.ask(message)
+                if a is None or a == "":
+                    return self.about
+                else:
+                    return a

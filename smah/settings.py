@@ -7,6 +7,7 @@ from rich.prompt import Prompt, Confirm
 from rich.console import Console
 
 from smah._settings.user import User
+from smah._settings.system import System
 
 class Settings:
     YAML_VERSION = "0.0.1"
@@ -17,11 +18,11 @@ class Settings:
         return Settings.DEFAULT_PROFILE if profile is None else profile
 
     @staticmethod
-    def version_supported(version):
-        if version is None:
+    def vsn_supported(vsn):
+        if vsn is None:
             return False
         else:
-            return version <= Settings.YAML_VERSION
+            return vsn <= Settings.YAML_VERSION
 
     def __init__(self, args):
         # status
@@ -31,30 +32,50 @@ class Settings:
         self.profile = Settings.default_profile(args.profile)
 
         # state
-        self.version = None
+        self.vsn = None
         self.user = None
+        self.system = None
 
         if os.path.exists(self.profile):
             with open(self.profile, 'r') as file:
                 config_data = yaml.safe_load(file)
-                version = config_data["version"] if "version" in config_data else None
-                if self.version_supported(version):
-                    self.version = version
-                    self.user = User(config_data["user"]) if "user" in config_data else None
+                vsn = config_data["vsn"] if "vsn" in config_data else None
+                if self.vsn_supported(vsn):
+                    self.vsn = vsn
+
+                    # Load User Settings
+                    self.user = User(config_data["user"] if "user" in config_data else None)
                     if self.user.errors:
                         self.errors = self.errors + self.user.errors
+
+                    # Load System Settings
+                    self.system = System(config_data["system"] if "system" in config_data else None)
+                    if self.system.errors:
+                        self.errors = self.errors + self.system.errors
+
                 else:
-                    self.errors = [f"Config version {version} is not supported by this version of SMAH"]
+                    self.errors = [f"Config version {vsn} is not supported by this version of SMAH"]
         if not self.errors:
             self.errors = None
         self.configured = self.is_configured()
 
+    def status(self):
+        user = self.user.status() if self.user is not None else None
+        system = self.system.status() if self.system is not None else None
+
+        status = "## Profile\nUser Info\n\n"
+        status += user or "Not Available"
+        status += "\n\n## System\nSystem Details.\n\n"
+        status += system or "Not Available"
+        return textwrap.dedent(status).strip()
 
     def is_configured(self):
         if (self.configured is None):
-            if self.version is None or self.user is None:
+            if self.vsn is None or self.user is None or self.system is None:
                 return False
             elif self.user.is_configured() is False:
+                return False
+            elif self.system.is_configured() is False:
                 return False
             else:
                 return True
@@ -80,19 +101,24 @@ class Settings:
             file.write(yaml_content)
 
     def to_yaml(self):
-        user = self.user.to_yaml() if self.user is not None else None
+
         return {
-            "version": self.version if self.version is not None else Settings.YAML_VERSION,
-            "user": user,
+            "vsn": self.vsn if self.vsn is not None else Settings.YAML_VERSION,
+            "user": self.user.to_yaml() if self.user is not None else None,
+            "system": self.system.to_yaml() if self.system is not None else None
         }
 
     def terminal_configure(self):
         console = Console()
         console.print(f"Lets Setup Your Profile: {self.profile}")
-        self.version = Settings.YAML_VERSION
+        self.vsn = Settings.YAML_VERSION
         if self.user is None:
             self.user = User(None)
         self.user.terminal_configure(console)
+
+        if self.system is None:
+            self.system = System(None)
+        self.system.terminal_configure(console)
 
     def gui_configure(self):
         print("GUI MODE", self.args.gui)
