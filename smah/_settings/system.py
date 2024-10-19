@@ -27,6 +27,9 @@ class System:
         self.cpu = System.CpuStats()
         self.memory = System.MemoryStats()
 
+        if config_data is not None:
+            config_data = config_data["os"] if "os" in config_data else None
+
         if config_data is None:
             self.errors = ["System data is missing"]
             self.type = None
@@ -132,15 +135,32 @@ class System:
         self.configured = None
         self.configured = self.is_configured()
 
-    def to_yaml(self):
-        return {
+    def to_yaml(self, options = {}):
+        system = {
+            "vsn": self.vsn if self.vsn is not None else System.YAML_VERSION,
             "type": self.type,
             "name": self.name,
             "version": self.version,
             "release": self.release,
-            "info": self.info.to_yaml() if self.info is not None else None,
-            "vsn": self.vsn if self.vsn is not None else System.YAML_VERSION
+            "info": self.info.to_yaml(options = options) if self.info is not None else None,
         }
+
+
+
+
+        if "stats" in options and options["stats"]:
+            return {
+                "vsn": System.YAML_VERSION,
+                "os": system,
+                "cpu": self.cpu.readings(),
+                "memory": self.memory.readings(),
+                "disk": self.disk.readings(),
+            }
+        else:
+            return {
+                "vsn": System.YAML_VERSION,
+                "os": system,
+            }
 
     def prompt_type(self, console, type):
         default_type = None
@@ -302,7 +322,7 @@ class System:
         def status(self):
             reading = self.readings()
             r = f"""
-            - time: {reading["time_stamp"]}
+            - time: {reading["time"]}
             - count: {reading["cpu_count"]}
             - freq: {reading["cpu_freq"]}
             - percent: {reading["cpu_percent"]}
@@ -325,7 +345,7 @@ class System:
             if self.stale(threshold):
                 self.update()
             return {
-                "time_stamp": self.time_stamp,
+                "time": self.time_stamp,
                 "cpu_count": self.last_cpu_count,
                 "cpu_freq": self.last_cpu_freq,
                 "cpu_percent": self.last_cpu_percent
@@ -358,7 +378,7 @@ class System:
         def status(self):
             reading = self.readings()
             r = f"""
-            - time: {reading["time_stamp"]}
+            - time: {reading["time"]}
             - total: {reading["total"]}
             - free: {reading["available"]}
             - used: {reading["used"]}
@@ -383,7 +403,7 @@ class System:
             if self.stale(threshold):
                 self.update()
             return {
-                "time_stamp": self.time_stamp,
+                "time": self.time_stamp,
                 "total": self.last_total,
                 "available": self.last_available,
                 "used": self.last_used,
@@ -416,7 +436,7 @@ class System:
         def status(self):
             reading = self.readings()
             r = f"""
-            - time: {reading["time_stamp"]}
+            - time: {reading["time"]}
             - total: {reading["total"]}
             - free: {reading["available"]}
             - used: {reading["used"]}
@@ -441,7 +461,7 @@ class System:
             if self.stale(threshold):
                 self.update()
             return {
-                "time_stamp": self.time_stamp,
+                "time": self.time_stamp,
                 "total": self.last_total,
                 "available": self.last_available,
                 "used": self.last_used,
@@ -527,12 +547,12 @@ class System:
             else:
                 return self.configured
 
-        def to_yaml(self):
+        def to_yaml(self, options = {}):
             return {
+                "vsn": self.vsn if self.vsn is not None else System.LinuxDetails.YAML_VERSION,
                 "kind": "Linux",
                 "source": self.source,
                 "details": self.details,
-                "vsn": self.vsn if self.vsn is not None else System.LinuxDetails.YAML_VERSION
             }
 
     class DarwinDetails:
@@ -595,10 +615,10 @@ class System:
 
         def to_yaml(self):
             return {
+                "vsn": self.vsn if self.vsn is not None else System.DarwinDetails.YAML_VERSION,
                 "kind": "Darwin",
                 "source": self.source,
                 "details": self.details,
-                "vsn": self.vsn if self.vsn is not None else System.DarwinDetails.YAML_VERSION
             }
 
 
@@ -663,10 +683,10 @@ class System:
 
         def to_yaml(self):
             return {
+                "vsn": self.vsn if self.vsn is not None else System.BSDDetails.YAML_VERSION,
                 "kind": "BSD",
                 "source": self.source,
                 "details": self.details,
-                "vsn": self.vsn if self.vsn is not None else System.BSDDetails.YAML_VERSION
             }
 
 
@@ -733,8 +753,8 @@ class System:
 
         def to_yaml(self):
             return {
+                "vsn": self.vsn if self.vsn is not None else System.WindowsDetails.YAML_VERSION,
                 "kind": "Windows",
                 "source": self.source,
                 "details": self.details,
-                "vsn": self.vsn if self.vsn is not None else System.WindowsDetails.YAML_VERSION
             }

@@ -24,13 +24,13 @@ class User:
         if config_data is None:
             self.errors = ["User data is missing"]
             self.name = None
-            self.skill_level = None
+            self.experience_level = None
             self.role = None
             self.about = None
             self.vsn = None
         else:
             self.name = config_data["name"] if "name" in config_data else None
-            self.skill_level = config_data["skill_level"] if "skill_level" in config_data else None
+            self.experience_level = config_data["experience_level"] if "experience_level" in config_data else None
             self.role = config_data["role"] if "role" in config_data else None
             self.about = config_data["about"] if "about" in config_data else None
             self.vsn = config_data["vsn"] if "vsn" in config_data else None
@@ -44,7 +44,7 @@ class User:
         status = f"""
         - name: {self.name}
         - role: {self.role}
-        - experience: {self.skill_level}
+        - experience: {self.experience_level}
         - about:
         {textwrap.indent(self.about or "","  ")}
         """
@@ -52,26 +52,26 @@ class User:
 
     def is_configured(self):
         if (self.configured is None):
-            return not(self.name is None or self.skill_level is None)
+            return not(self.name is None or self.experience_level is None)
         else:
             return self.configured
 
     def terminal_configure(self, console):
         console.print("Lets get to know you", style="bold green")
         self.name = self.prompt_name(console)
-        self.skill_level = self.prompt_skill_level(console)
+        self.experience_level = self.prompt_experience_level(console)
         self.role = self.prompt_role(console)
         self.about = self.prompt_about(console)
         self.configured = None
         self.configured = self.is_configured()
 
-    def to_yaml(self):
+    def to_yaml(self, options = {}):
         return {
+            "vsn": self.vsn if self.vsn is not None else User.YAML_VERSION,
             "name": self.name,
-            "skill_level": self.skill_level,
+            "experience_level": self.experience_level,
             "role": self.role,
             "about": self.about,
-            "vsn": self.vsn if self.vsn is not None else User.YAML_VERSION
         }
 
     def prompt_name(self, console):
@@ -85,7 +85,7 @@ class User:
             else:
                 return Prompt.ask(message, default = self.name)
 
-    def prompt_skill_level(self, console):
+    def prompt_experience_level(self, console):
         message = textwrap.dedent(
             """
             [bold green]What is your experience level?[/bold green]
@@ -111,15 +111,15 @@ class User:
             "Expert": "4"
         }
 
-        if self.skill_level is None:
+        if self.experience_level is None:
             level =  Prompt.ask(message, choices=["0","1", "2", "3", "4"])
             return levels[level]
         else:
-            console.print(f"Experience Level: {self.skill_level}")
+            console.print(f"Experience Level: {self.experience_level}")
             if Confirm.ask("correct?", default=True):
-                return self.skill_level
+                return self.experience_level
             else:
-                default_level = reverse_levels[self.skill_level] if self.skill_level in reverse_levels else None
+                default_level = reverse_levels[self.experience_level] if self.experience_level in reverse_levels else None
                 level = Prompt.ask(message, choices=["1", "2", "3", "4"], default = default_level)
                 return levels[level]
 

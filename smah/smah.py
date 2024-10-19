@@ -1,7 +1,7 @@
 import os
 import argparse
 import textwrap
-
+import yaml
 import rich
 from rich.markdown import Markdown
 
@@ -23,10 +23,9 @@ def main():
         settings.configure()
 
     if args.verbose > 2:
-        status = settings.status() or "[Error]"
-        p = "# Status\nCurrent System Status\n\n"
-        p +=  status or "N/A"
+        contents = settings.to_yaml({"stats": True})
+        body = "```yaml\n" + yaml.dump({"settings": contents}, sort_keys=False) + "\n```"
         console = rich.console.Console()
-        p = Markdown(p)
-        console.print(p)
+        body = Markdown(body)
+        console.print(body)
 

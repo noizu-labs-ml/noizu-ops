@@ -100,12 +100,12 @@ class Settings:
             yaml_content = yaml.dump(self.to_yaml())
             file.write(yaml_content)
 
-    def to_yaml(self):
+    def to_yaml(self, options={}):
 
         return {
             "vsn": self.vsn if self.vsn is not None else Settings.YAML_VERSION,
-            "user": self.user.to_yaml() if self.user is not None else None,
-            "system": self.system.to_yaml() if self.system is not None else None
+            "user": self.user.to_yaml(options = options) if self.user is not None else None,
+            "system": self.system.to_yaml(options = options) if self.system is not None else None
         }
 
     def terminal_configure(self):
