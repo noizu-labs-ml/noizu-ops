@@ -9,6 +9,9 @@ package-mode = true
 [tool.poetry.dependencies]
 python = "^3.10"
 rich = "^13.9.2"
+openai = "^1.52.0"
+aiohttp = "^3.10.10"
+requests = "^2.32.3"
 
 [tool.poetry.scripts]
 smah = "smah.smah:main"
