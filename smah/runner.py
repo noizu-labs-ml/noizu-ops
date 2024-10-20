@@ -5,16 +5,79 @@ import yaml
 from rich.markdown import Markdown
 from rich.panel import Panel
 from smah.console import std_console, err_console
+import logging
+from typing import Optional, Any, Dict
+from dataclasses import dataclass
+
+# Constants
+MAX_PIPE_LENGTH = 2048
+PIPE_HEAD_LENGTH = 1024
+
+@dataclass
+class PickerOutput:
+    pick_model: Any
+    pick_reason: str
+    include_context: bool
+    include_context_reason: str
+    raw_output: bool
+    raw_output_reason: str
 
 class Runner:
-    def __init__(self, args, settings):
+    def __init__(self, args: Any, settings: Any) -> None:
         self.args = args
         self.settings = settings
 
-    def query(self, query):
-        picker_model = self.settings.providers.picker_model()
+    def query(self, query: str) -> None:
+        try:
+            picker_model = self.settings.providers.picker_model()
+            self.__print_query_mode()
+
+            query_dict = self.__compose_query_dict(query)
+            pick = picker_model.pick(query_dict, self.settings)
+            if pick is not None:
+                picker_output = PickerOutput(*pick)
+                self.__display_picker_response(picker_output, query_dict)
+                response = picker_output.pick_model.query(query, picker_output.include_context, self.settings)
+                self.__display_response(response)
+        except Exception as e:
+            logging.error(f"Error in query method: {str(e)}")
+
+    def pipe(self, query: str, pipe: str) -> None:
+        try:
+            console = std_console
+            picker_model = self.settings.providers.picker_model()
+
+            query = textwrap.dedent(query)
+            request_content = self.__create_pipe_request_content(query, pipe)
+
+            request_dict = {
+                "role": "user",
+                "content": request_content
+            }
+
+            pick = picker_model.pick(request_dict, self.settings)
+            if pick is not None:
+                picker_output = PickerOutput(*pick)
+                self.__display_picker_response(picker_output, request_dict)
+                response = picker_output.pick_model.pipe(query, pipe, picker_output.include_context, self.settings)
+                self.__display_response(response, raw_output=picker_output.raw_output)
+        except Exception as e:
+            logging.error(f"Error in pipe method: {str(e)}")
+
+    def interactive(self, pipe: Optional[str] = None) -> None:
+        try:
+            picker_model = self.settings.providers.picker_model()
+            std_console.print("--- Interactive ---")
+            std_console.print(f"Picker Model: {picker_model.model}")
+            std_console.print("Interactive")
+            std_console.print(f"Pipe: {pipe}")
+        except Exception as e:
+            logging.error(f"Error in interactive method: {str(e)}")
+
+    def __print_query_mode(self) -> None:
         std_console.print(Panel("Processing In Query Mode", title="Query", style="bold white", box=rich.box.ROUNDED))
 
+    def __compose_query_dict(self, query: str) -> Dict[str, str]:
         operator = self.settings.user.to_yaml() if self.settings.user is not None else None
         operator = yaml.dump(operator) if operator is not None else None
 
@@ -22,53 +85,17 @@ class Runner:
             """
             # CLI User Request
             Your operator:
-            {o}
+            {operator}
             has the following inquiry:
             ----
-            {q}
-            """).strip().format(o=operator, q=query)
-        query = {
-            "role": "user",
-            "content": q
-        }
+            {query}
+            """).strip().format(operator=operator, query=query)
+        return {"role": "user", "content": q}
 
-        pick = picker_model.pick(query, self.settings)
-        if pick is not None:
-            pick_model, pick_reason, include_context, include_context_reason, raw_output, raw_output_reason = pick
-
-            picker_response = textwrap.dedent(f"""
-            picker: {picker_model.model}
-            selected_model: {pick_model.model}
-            reason: {pick_reason}
-            include_context: {include_context}
-            include_context_reason: {include_context_reason}
-            raw_output: {raw_output}
-            raw_output_reason: {raw_output_reason}            
-            """)
-            q = Panel(picker_response, title="Query: Model Picker", style="bold yellow", box=rich.box.SQUARE)
-            std_console.print(q)
-
-
-            q = Panel(query['content'], title="Query", style="bold white", box=rich.box.ROUNDED)
-            std_console.print(q)
-            std_console.print("\n\n\n")
-
-            response = pick_model.query(query, include_context, self.settings)
-            q = Panel("LLM Response Below", title="Response", style="bold yellow", box=rich.box.ROUNDED)
-            std_console.print(q)
-
-            m = Markdown(response)
-            std_console.print(m)
-
-
-    def pipe(self, query, pipe):
-        console = std_console
-        picker_model = self.settings.providers.picker_model()
-
-        query = textwrap.dedent(query)
-        if len(pipe) > 2048:
-            pipe_head = pipe[:1024]
-            pipe_tail = pipe[1024:]
+    def __create_pipe_request_content(self, query: str, pipe: str) -> str:
+        if len(pipe) > MAX_PIPE_LENGTH:
+            pipe_head = pipe[:PIPE_HEAD_LENGTH]
+            pipe_tail = pipe[PIPE_HEAD_LENGTH:]
             request_template = textwrap.dedent(
                 """
                 # Pipe Request
@@ -81,12 +108,7 @@ class Runner:
                 .
                 {pipe_tail}
                 """
-            )
-            request = request_template.format(query=query, pipe_head=pipe_head, pipe_tail=pipe_tail)
-            request = {
-                "role": "user",
-                "content": request
-            }
+            ).format(query=query, pipe_head=pipe_head, pipe_tail=pipe_tail)
         else:
             request_template = textwrap.dedent(
                 """
@@ -96,48 +118,32 @@ class Runner:
                 Pipe:
                 {pipe}
                 """
-            )
-            request = request_template.format(query=query, pipe=pipe)
-            request = {
-                "role": "user",
-                "content": request
-            }
+            ).format(query=query, pipe=pipe)
+        return request_template.strip()
 
-        # Select Model
-        pick = picker_model.pick(request, self.settings)
-        if pick is not None:
-            pick_model, pick_reason, include_context, include_context_reason, raw_output, raw_output_reason = pick
-            picker_response = textwrap.dedent(f"""
-            picker: {picker_model.model}
-            selected_model: {pick_model.model}
-            reason: {pick_reason}
-            include_context: {include_context}
-            include_context_reason: {include_context_reason}
-            raw_output: {raw_output}
-            raw_output_reason: {raw_output_reason}    
+    def __display_picker_response(self, picker_output: PickerOutput, query_dict: dict) -> None:
+        picker_response = textwrap.dedent(
+            f"""
+            picker: {picker_output.pick_model.model}
+            selected_model: {picker_output.pick_model.model}
+            reason: {picker_output.pick_reason}
+            include_context: {picker_output.include_context}
+            include_context_reason: {picker_output.include_context_reason}
+            raw_output: {picker_output.raw_output}
+            raw_output_reason: {picker_output.raw_output_reason}
             """)
-            q = Panel(picker_response, title="Pipe: Model Picker", style="bold yellow", box=rich.box.SQUARE)
-            console.print(q)
+        q = Panel(picker_response, title="Model Picker", style="bold yellow", box=rich.box.SQUARE)
+        std_console.print(q)
 
-            q = Panel(query, title="Query", style="bold white", box=rich.box.ROUNDED)
-            console.print(q)
+        q = Panel(query_dict['content'], title="Query", style="bold white", box=rich.box.ROUNDED)
+        std_console.print(q)
 
-            response = pick_model.pipe(query, pipe, include_context, self.settings)
+    def __display_response(self, response: str, raw_output: bool = False) -> None:
+        q = Panel("LLM Response Below", title="Response", style="bold yellow", box=rich.box.ROUNDED)
+        std_console.print(q)
 
-            q = Panel("LLM Pipe Response", title="Response", style="bold yellow", box=rich.box.ROUNDED)
-            console.print(q)
-
-            if raw_output:
-                print(response)
-            else:
-                print(response)
-                #m = Markdown(response)
-                #console.print(m)
-
-    def interactive(self, pipe=None):
-        console = Console()
-        picker_model = self.settings.providers.picker_model()
-        console.print("--- Interactive ---")
-        console.print("Picker Model", picker_model.model)
-        console.print("Interactive")
-        console.print(f"Pipe: {pipe}")
+        if raw_output:
+            print(response)
+        else:
+            m = Markdown(response)
+            std_console.print(m)
