@@ -1,6 +1,7 @@
 import os
 import textwrap
 import yaml
+from smah.inference_providers import InferenceProvider
 from attr.converters import optional
 
 from rich.prompt import Prompt, Confirm
@@ -35,6 +36,11 @@ class Settings:
         self.vsn = None
         self.user = None
         self.system = None
+        self.providers = InferenceProvider(
+            openai_api_tier=args.openai_api_tier,
+            openai_api_key=args.openai_api_key,
+            openai_api_org=args.openai_api_org,
+        )
 
         if os.path.exists(self.profile):
             with open(self.profile, 'r') as file:
@@ -52,12 +58,12 @@ class Settings:
                     self.system = System(config_data["system"] if "system" in config_data else None)
                     if self.system.errors:
                         self.errors = self.errors + self.system.errors
-
                 else:
                     self.errors = [f"Config version {vsn} is not supported by this version of SMAH"]
         if not self.errors:
             self.errors = None
         self.configured = self.is_configured()
+
 
     def status(self):
         user = self.user.status() if self.user is not None else None
