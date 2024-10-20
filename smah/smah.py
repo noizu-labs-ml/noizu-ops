@@ -34,146 +34,62 @@ from rich.markdown import Markdown
 from rich.console import Console
 import logging
 import sys
+from smah.console import std_console, err_console
 
 from smah.settings import Settings
 from smah.runner import Runner
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(created)f %(filename)s:%(lineno)d [%(levelname)s] %(message)s',
-    handlers=[
-        logging.FileHandler("smah.log"),
-        logging.StreamHandler(sys.stdout)  # For console output
-    ]
-)
-
-console = Console()
-err_console = Console(stderr=True)
-
-def extract_args():
-    """
-    Parses and extracts command-line arguments for the SMAH CLI tool.
-
-    Returns:
-        parser (ArgumentParser): The argument parser with configured options.
-        args (Namespace): Parsed arguments and options.
-        pipe (str or None): Content read from standard input if available.
-    """
-    parser = initialize_argument_parser()
-    add_general_arguments(parser)
-    add_ai_arguments(parser)
-    add_gui_arguments(parser)
-    args = parser.parse_args()
-    return parser, args, get_pipe()
-
-
-def initialize_argument_parser():
-    """
-    Initialize the argument parser with basic configurations.
-
-    Returns:
-        ArgumentParser: A configured argument parser.
-    """
-    return argparse.ArgumentParser(
-        description="SMAH Command Line Tool",
-        formatter_class=argparse.RawTextHelpFormatter
-    )
-
-def add_general_arguments(parser):
-    """
-    Add general command-line arguments to the parser.
-
-    Args:
-        parser (ArgumentParser): The argument parser to which general arguments are added.
-    """
-    parser.add_argument('-q', '--query', type=str, help='The Query to process')
-    parser.add_argument('-i', '--instructions', type=str, help='The Instruction File to process')
-    parser.add_argument('--profile', type=str, help='Path to alternative config file')
-    parser.add_argument('-v', '--verbose', action='count', default=0, help="Set Verbosity Level, such as -vv")
-
-def add_ai_arguments(parser):
-    """
-    Add specific AI-related command-line arguments to the parser.
-
-    Args:
-        parser (ArgumentParser): The argument parser to which AI-related arguments are added.
-    """
-    parser.add_argument('--openai-api-tier', type=int, help='OpenAI Tier')
-    parser.add_argument('--openai-api-key', type=str, help='OpenAI Api Key')
-    parser.add_argument('--openai-api-org', type=str, help='OpenAI Api Org')
-
-def add_gui_arguments(parser):
-    """
-    Add GUI-related command-line arguments to the parser.
-
-    Args:
-        parser (ArgumentParser): The argument parser to which GUI-related arguments are added.
-    """
-    parser.add_argument('--gui', action=argparse.BooleanOptionalAction, help='Run in GUI mode', default=True)
-
-def get_pipe():
-    """
-    Reads data from standard input if present and available.
-
-    Returns:
-        str or None: The content available from standard input; otherwise, None if input is not a TTY.
-    """
-    if sys.stdin.isatty():
-        return None
-    else:
-        return sys.stdin.read()
-
-def log_settings(settings, format=True, print_settings=False):
-    """
-    Log current application settings and print them in a configured format.
-
-    Args:
-        settings (Settings): Application settings object.
-    """
-    try:
-        settings_yaml = yaml.dump({"settings": settings.to_yaml({"stats": True})}, sort_keys=False)
-        logging.info("[Settings]\n%s", settings_yaml)
-        if print_settings:
-            t = textwrap.dedent(
-                """
-                Settings
-                ========
-                ```yaml
-                {c}
-                ```
-                """
-            ).strip().format(c=settings_yaml)
-            console.print(Markdown(t) if format else t)
-    except Exception as e:
-        logging.error("Exception Raised: %s", str(e))
+import smah.logging
+import smah.args
 
 def main():
+    """
+    The primary function that sets up application configuration and executes user-specified queries.
+
+    This function configures logging, parses command-line arguments, initializes settings, and
+    coordinates the execution based on user inputs. It handles different modes of operation such as
+    processing queries, processing instructions from a file, or running in interactive mode.
+
+    Raises:
+        Exception: If an unexpected error occurs during execution.
+    """
+    # Configure logging
+    smah.logging.configure()
+
     try:
-        parser, args, pipe = extract_args()
+        args, pipe = smah.args.extract_args()
         settings = Settings(args)
 
-        print_settings=args.verbose > 2
         # If settings are not configured, ask user to provide necessary information
+        show = args.verbose > 3
         if not settings.is_configured():
             settings.configure()
-            print_settings = True
-        log_settings(settings, print_settings=print_settings, format=args.gui)
+            show = True
+
+        smah.logging.log_settings(settings, print=show, format=args.gui)
 
         runner = Runner(args, settings)
 
         if args.query:
-            process_query(console, runner, args.query, pipe)
+            process_query(runner, args.query, pipe)
         elif args.instructions:
-            process_instructions(console, runner, args.instructions, pipe)
+            process_instructions(runner, args.instructions, pipe)
         else:
             runner.interactive(pipe=pipe)
     except Exception as e:
-        logging.error("An unexpected error occurred in main: %s", str(e))
-        console.print(f"An unexpected error occurred: {e}", style="bold red")
+        logging.error("An unexpected error occurred in main: %s", str(e), exc_info=True)
 
+def process_query(runner: Runner, query: str, pipe: str) -> None:
+    """
+    Process a query using the provided runner.
 
-def process_query(console, runner, query, pipe):
+    Args:
+        runner (Runner): The runner instance to execute the query.
+        query (str): The query string to be processed.
+        pipe (str or None): Optional content read from standard input.
+
+    Raises:
+        Exception: If an error occurs during query processing.
+    """
     try:
         if pipe:
             runner.pipe(query=query, pipe=pipe)
@@ -181,9 +97,20 @@ def process_query(console, runner, query, pipe):
             runner.query(query=query)
     except Exception as e:
         logging.error("Error processing query: %s", str(e))
-        console.print(f"Error processing query: {e}", style="bold red")
 
-def process_instructions(console, runner, instructions_file, pipe):
+def process_instructions(runner: Runner, instructions_file: str, pipe: str) -> None:
+    """
+    Process instructions from a file using the provided runner.
+
+    Args:
+        runner (Runner): The runner instance to execute the instructions.
+        instructions_file (str): The path to the instructions file.
+        pipe (str or None): Optional content read from standard input.
+
+    Raises:
+        FileNotFoundError: If the instructions file is not found.
+        IOError: If an I/O error occurs while reading the file.
+    """
     try:
         with open(instructions_file, 'r') as file:
             instructions = file.read()
@@ -194,7 +121,8 @@ def process_instructions(console, runner, instructions_file, pipe):
                     runner.query(query=instructions.query)
     except FileNotFoundError:
         logging.error("Instruction file not found: %s", instructions_file)
-        console.print(f"Error: Instruction file '{instructions_file}' not found.", style="bold red")
     except IOError as e:
         logging.error("IO error reading file '%s': %s", instructions_file, str(e))
-        console.print(f"Error reading file '{instructions_file}': {e}", style="bold red")
+
+if __name__ == "__main__":
+    main()
