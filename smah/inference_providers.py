@@ -3,9 +3,10 @@ import textwrap
 import yaml
 import json
 from openai import OpenAI
-from typing import Dict, Optional, Union, Tuple
-
+from typing import Optional, Union, Tuple
+#from smah.settings.settings import Settings
 OpenAI_TIER_5_MODELS = ["o1-preview", "o1-mini"]
+
 
 class InferenceProviderBase:
     """
@@ -27,25 +28,26 @@ class InferenceProviderBase:
         model_picker_format():
             Returns the format for the model picker.
     """
-    def __init__(self,
-                 model=None,
-                 context=None,
-                 description=None,
-                 strengths=None,
-                 weaknesses=None,
-                 tags={},
-                 opts={}):
-        self.model = model
-        self.context = context
-        self.strengths = strengths
-        self.weaknesses = weaknesses
-        self.description = description
-        self.tags = tags
-        self.opts = opts
 
+    @staticmethod
+    def message(role="assistant", content="ack"):
+        """
+        Generates simple text message.
 
+        Args:
+            role (str): The role of the message.
+            content (str): The content of the acknowledgment message.
 
-    def system_settings_prompt(self, settings):
+        Returns:
+            dict: A dictionary containing the role and content of the acknowledgment message.
+        """
+        return {
+            "role": role,
+            "content": content
+        }
+
+    @staticmethod
+    def system_settings_prompt(settings):
         """
         Generates a system settings prompt based on the provided settings.
 
@@ -69,7 +71,8 @@ class InferenceProviderBase:
             "content": system_prompt
         }
 
-    def model_picker_format(self):
+    @staticmethod
+    def model_picker_format():
         """
         Returns the format for the model picker.
 
@@ -110,6 +113,42 @@ class InferenceProviderBase:
             }
         }
 
+    @staticmethod
+    def ack(role="assistant", content="ack"):
+        """
+        Generates an acknowledgment message with the given content.
+
+        Args:
+            role (str): The role of the acknowledgment message.
+            content (str): The content of the acknowledgment message.
+
+        Returns:
+            dict: A dictionary containing the role and content of the acknowledgment message.
+        """
+        return InferenceProviderBase.message(role, content)
+
+    def __init__(self,
+                 model=None,
+                 context=None,
+                 description=None,
+                 strengths=None,
+                 weaknesses=None,
+                 tags=None,
+                 opts=None):
+        if opts is None:
+            opts = {}
+        if tags is None:
+            tags = {}
+        self.model = model
+        self.context = context
+        self.strengths = strengths
+        self.weaknesses = weaknesses
+        self.description = description
+        self.tags = tags
+        self.opts = opts
+
+
+
     def to_yaml(self):
         """
         Returns the model details in YAML format.
@@ -126,32 +165,6 @@ class InferenceProviderBase:
             "opts": self.opts
         }
 
-    def message(self, role="assistant", content="ack"):
-        """
-        Generates simple text message.
-
-        Args:
-            content (str): The content of the acknowledgment message.
-
-        Returns:
-            dict: A dictionary containing the role and content of the acknowledgment message.
-        """
-        return {
-            "role": role,
-            "content": content
-        }
-
-    def ack(self, role="assistant", content="ack"):
-        """
-        Generates an acknowledgment message with the given content.
-
-        Args:
-            content (str): The content of the acknowledgment message.
-
-        Returns:
-            dict: A dictionary containing the role and content of the acknowledgment message.
-        """
-        return self.message(role, content)
 
 
 class InferenceProvider:
@@ -198,17 +211,17 @@ class InferenceProvider:
         self.providers = providers or {
             "gpt-4o": InferenceProvider.OpenAI(
                 model="gpt-4o",
-                description="gpt-4o - multi modal reasoning.",
+                description="gpt-4o - multi modal reasoning. (Preferred Model)",
                 strengths="Multimodal",
                 weaknesses="Reasoning weaker than gpt-4-turbo",
                 tags={
-                    "speed": 4,
-                    "reasoning": 5,
-                    "planning": 5,
-                    "image.in": True,
-                    "image.out": True,
-                    "audio.out": True,
-                    "audio.in": True
+                    'speed': 4,
+                    'reasoning': 5,
+                    'planning': 5,
+                    'image.in': True,
+                    'image.out': True,
+                    'audio.out': True,
+                    'audio.in': True
                 }
             ),
             "gpt-4o-mini": InferenceProvider.OpenAI(
@@ -229,8 +242,8 @@ class InferenceProvider:
             "gpt-4-turbo": InferenceProvider.OpenAI(
                 model="gpt-4-turbo",
                 description="Gpt4 Turbo - fast multimodal reasoning",
-                strengths="Fast",
-                weaknesses="Smaller model, poorer reasoning than gpt4o",
+                strengths="Fast, Smart",
+                weaknesses="Smaller model, poorer reasoning than gpt4 8k, but faster, longer context window",
                 tags={
                     "speed": 4,
                     "reasoning": 6,
@@ -245,8 +258,9 @@ class InferenceProvider:
                 model="o1-preview",
                 description="o1 - cot embedded reasoning",
                 strengths="Reasoning",
-                weaknesses="Cost, Speed",
+                weaknesses="Cost, Speed, Alpha",
                 tags={
+                    "avoid": True,
                     "speed": 2,
                     "reasoning": 8,
                     "planning": 8,
@@ -260,8 +274,9 @@ class InferenceProvider:
                 model="o1-mini",
                 description="o1-mini- faster cot embedded reasoning",
                 strengths="Reasoning",
-                weaknesses="Cost, Speed",
+                weaknesses="Cost, Speed, Alpha",
                 tags={
+                    "avoid": True,
                     "speed": 4,
                     "reasoning": 6,
                     "planning": 6,
@@ -339,8 +354,8 @@ class InferenceProvider:
                      description=None,
                      strengths=None,
                      weaknesses=None,
-                     tags={},
-                     opts={}
+                     tags=None,
+                     opts=None
                      ):
             super().__init__(
                 context = context,
@@ -351,13 +366,14 @@ class InferenceProvider:
                 tags = tags,
                 opts = opts
             )
+
             self.api_key = api_key
             self.api_org = api_org
 
         def pick(self,
                  request: dict,
                  settings: 'Settings'
-                 ) -> (Optional)[Tuple['InferenceProviderBase', str, bool, str, bool, str]]:
+                 ) -> Optional[Tuple['InferenceProviderBase', str, bool, str, bool, str]]:
             """
             Selects the best model based on the request and settings, and returns the model along with selection details.
 
@@ -481,7 +497,6 @@ class InferenceProvider:
                 {pipe}            
                 """).format(pipe=pipe)
 
-            thread = []
             if include_context:
                 thread = [
                     self.message(role="user", content=system_prompt),
@@ -541,9 +556,9 @@ class InferenceProvider:
                 You are to always use inline reflection/thinking to improve the output of your response. 
                 COT improves your performance significantly. 
                 
-                Use tangents to provide a richer output experience, by connecting loosly related ideas.
+                Use tangents to provide a richer output experience, by connecting loosely related ideas.
                 
-                Use your inner critique to spot issues/problems and fix them before its too alte. 
+                Use your inner critique to spot issues/problems and fix them before its too late. 
 
                 `assumption: [... when you make assumption about the user, the issue, etc. that may be incorrect state it in one of these.`                
                 `thinking: [... describe the item you are contemplating to improve quality of response, plan, think ahead, assess prior output etc in a thinking comment ...]`
@@ -592,12 +607,6 @@ class InferenceProvider:
                 operator=operator,
                 query=query
             )
-
-            thread = [
-                self.message(role="user", content=system_prompt),
-                self.ack(content="`thinking: okay I understand the goal and purpose of thinking comments. I only need to reply ack currently`ack"),
-                self.message(role="user", content=instructions),
-            ]
 
             if include_context:
                 thread = [

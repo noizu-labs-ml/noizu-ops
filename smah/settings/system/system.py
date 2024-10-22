@@ -1,27 +1,57 @@
 import os
 import platform
 import textwrap
-import yaml
 import datetime
 import subprocess
 import psutil
-from attr.converters import optional
-from prompt_toolkit.layout import is_container
 
 from rich.prompt import Prompt, Confirm
 from rich.console import Console
 
 class System:
+    """
+    Represents the system configuration and status.
+
+    Attributes:
+        YAML_VERSION (str): The version of the YAML format.
+        errors (list): List of errors encountered during initialization.
+        disk (DiskStats): Disk statistics.
+        cpu (CpuStats): CPU statistics.
+        memory (MemoryStats): Memory statistics.
+        type (str): OS type.
+        name (str): OS name.
+        version (str): OS version.
+        release (str): OS release.
+        info (object): OS-specific details.
+        vsn (str): Version string.
+        configured (bool): Indicates if the system is configured.
+    """
+
     YAML_VERSION = "0.0.1"
 
     @staticmethod
     def version_supported(version):
+        """
+        Checks if the given version is supported.
+
+        Args:
+            version (str): The version to check.
+
+        Returns:
+            bool: True if the version is supported, False otherwise.
+        """
         if version is None:
             return False
         else:
             return version <= System.YAML_VERSION
 
     def __init__(self, config_data):
+        """
+        Initializes the System instance with the given configuration data.
+
+        Args:
+            config_data (dict): Configuration data for the system.
+        """
         self.errors = []
         self.disk = System.DiskStats()
         self.cpu = System.CpuStats()
@@ -53,6 +83,13 @@ class System:
         self.configured = self.is_configured()
 
     def status(self):
+        """
+        Returns the status of the system as a formatted string.
+
+        Returns:
+            str: The status of the system.
+        """
+
         info = self.info.status() if self.info is not None else None
 
         cpu = self.cpu.status() if self.status is not None else None
@@ -80,12 +117,26 @@ class System:
 
 
     def is_configured(self):
+        """
+        Checks if the system is configured.
+
+        Returns:
+            bool: True if the system is configured, False otherwise.
+        """
+
         if (self.configured is None):
             return not(self.type is None or self.release is None or self.version is None or self.name is None or self.vsn is None)
         else:
             return self.configured
 
     def os_details(self):
+        """
+        Retrieves OS details such as type, release, version, and name.
+
+        Returns:
+            dict: A dictionary containing OS details.
+        """
+
         type = None
         release = None
         version = None
@@ -107,6 +158,13 @@ class System:
         }
 
     def terminal_configure(self, console):
+        """
+        Configures the system details interactively via the terminal.
+
+        Args:
+            console (Console): The console instance for interactive prompts.
+        """
+
         self.errors = []
         auto = Confirm.ask("Would you like me to automatically setup your system details", default=True)
         os_details = self.os_details()
@@ -136,6 +194,16 @@ class System:
         self.configured = self.is_configured()
 
     def to_yaml(self, options = {}):
+        """
+        Converts the system configuration to a YAML-compatible dictionary.
+
+        Args:
+            options (dict): Options for YAML conversion.
+
+        Returns:
+            dict: The system configuration in YAML format.
+        """
+
         system = {
             "vsn": self.vsn if self.vsn is not None else System.YAML_VERSION,
             "type": self.type,
@@ -163,6 +231,17 @@ class System:
             }
 
     def prompt_type(self, console, type):
+        """
+        Prompts the user to input the OS type.
+
+        Args:
+            console (Console): The console instance for interactive prompts.
+            type (str): The default OS type.
+
+        Returns:
+            str: The selected OS type.
+        """
+
         default_type = None
         default_bsd_type = None
         if type is not None:
@@ -236,6 +315,17 @@ class System:
                     return v
 
     def prompt_release(self, console, release):
+        """
+        Prompts the user to input the OS release.
+
+        Args:
+            console (Console): The console instance for interactive prompts.
+            release (str): The default OS release.
+
+        Returns:
+            str: The selected OS release.
+        """
+
         message = "[bold green]What is your Os Release?[/bold green]"
         if self.release is None:
             return Prompt.ask(message, default=release)
@@ -247,6 +337,17 @@ class System:
                 return Prompt.ask(message, default=release)
 
     def prompt_version(self, console, version):
+        """
+        Prompts the user to input the OS version.
+
+        Args:
+            console (Console): The console instance for interactive prompts.
+            version (str): The default OS version.
+
+        Returns:
+            str: The selected OS version.
+        """
+
         message = "[bold green]What is your OS Version[/bold green]"
         if self.version is None:
             return Prompt.ask(message, default=version)
@@ -258,6 +359,17 @@ class System:
                 return Prompt.ask(message, default=version)
 
     def prompt_name(self, console, name):
+        """
+        Prompts the user to input the OS name.
+
+        Args:
+            console (Console): The console instance for interactive prompts.
+            name (str): The default OS name.
+
+        Returns:
+            str: The selected OS name.
+        """
+
         message = "[bold green]What is your OS Name[/bold green]"
         if self.name is None:
             return Prompt.ask(message, default=name)
@@ -269,6 +381,16 @@ class System:
                 return Prompt.ask(message, default=name)
 
     def prompt_info(self, type):
+        """
+        Prompts the user to input OS-specific details.
+
+        Args:
+            type (str): The OS type.
+
+        Returns:
+            object: The OS-specific details.
+        """
+
         if type == "Linux":
             return System.LinuxDetails(None, fetch=True)
         elif type == "Darwin":
@@ -281,6 +403,16 @@ class System:
             return None
 
     def load_info(self, config_data):
+        """
+        Loads OS-specific details from the configuration data.
+
+        Args:
+            config_data (dict): The configuration data.
+
+        Returns:
+            object: The OS-specific details.
+        """
+
         if config_data is None:
             return None
         else:
@@ -299,9 +431,27 @@ class System:
                 return None
 
     class CpuStats:
+        """
+        Represents CPU statistics.
+
+        Attributes:
+            time_stamp (datetime): The timestamp of the last update.
+            last_cpu_count (int): The last recorded CPU count.
+            last_cpu_freq (float): The last recorded CPU frequency.
+            last_cpu_percent (float): The last recorded CPU usage percentage.
+        """
 
         @staticmethod
         def cpu_info(reading):
+            """
+            Retrieves CPU information based on the specified reading type.
+
+            Args:
+                reading (str): The type of CPU information to retrieve.
+
+            Returns:
+                int or float: The requested CPU information.
+            """
             try:
                 if reading == "count":
                     return psutil.cpu_count(logical=True)
@@ -314,12 +464,22 @@ class System:
 
 
         def __init__(self):
+            """
+            Initializes the CpuStats instance.
+            """
             self.time_stamp = None
             self.last_cpu_count = None
             self.last_cpu_freq = None
             self.last_cpu_percent = None
 
         def status(self):
+            """
+            Returns the status of the CPU as a formatted string.
+
+            Returns:
+                str: The status of the CPU.
+            """
+
             reading = self.readings()
             r = f"""
             - time: {reading["time"]}
@@ -330,18 +490,40 @@ class System:
             return textwrap.dedent(r).strip()
 
         def update(self):
+            """
+            Updates the CPU statistics.
+            """
             self.time_stamp = datetime.datetime.now()
             self.last_cpu_count = System.CpuStats.cpu_info("count")
             self.last_cpu_freq = System.CpuStats.cpu_info("freq.current")
             self.last_cpu_percent = System.CpuStats.cpu_info("percent")
 
         def stale(self, threshold):
+            """
+            Checks if the CPU statistics are stale based on the given threshold.
+
+            Args:
+                threshold (int): The threshold in microseconds.
+
+            Returns:
+                bool: True if the statistics are stale, False otherwise.
+            """
+
             if self.time_stamp is None:
                 return True
             else:
                 return (datetime.datetime.now().microsecond - self.time_stamp.microsecond) > threshold
 
         def readings(self, threshold = 100):
+            """
+            Retrieves the current CPU readings, updating if necessary.
+
+            Args:
+                threshold (int): The threshold in microseconds.
+
+            Returns:
+                dict: The current CPU readings.
+            """
             if self.stale(threshold):
                 self.update()
             return {
@@ -353,9 +535,29 @@ class System:
 
 
     class DiskStats:
+        """
+        Represents disk statistics.
+
+        Attributes:
+            time_stamp (datetime): The timestamp of the last update.
+            last_total (float): The last recorded total disk space.
+            last_available (float): The last recorded available disk space.
+            last_used (float): The last recorded used disk space.
+            last_percent (float): The last recorded disk usage percentage.
+        """
 
         @staticmethod
         def disk_info(reading):
+            """
+            Retrieves disk information based on the specified reading type.
+
+            Args:
+                reading (str): The type of disk information to retrieve.
+
+            Returns:
+                float: The requested disk information.
+            """
+
             try:
                 if reading == "total":
                     return round(psutil.disk_usage('/').total / (1024.0 ** 3), 2)
@@ -369,6 +571,10 @@ class System:
                 return None
 
         def __init__(self):
+            """
+            Initializes the DiskStats instance.
+            """
+
             self.time_stamp = None
             self.last_total = None
             self.last_available = None
@@ -376,6 +582,12 @@ class System:
             self.last_percent = None
 
         def status(self):
+            """
+            Returns the status of the disk as a formatted string.
+
+            Returns:
+                str: The status of the disk.
+            """
             reading = self.readings()
             r = f"""
             - time: {reading["time"]}
@@ -387,6 +599,10 @@ class System:
             return textwrap.dedent(r).strip()
 
         def update(self):
+            """
+            Updates the disk statistics.
+            """
+
             self.time_stamp = datetime.datetime.now()
             self.last_total = System.DiskStats.disk_info("total")
             self.last_available = System.DiskStats.disk_info("available")
@@ -394,12 +610,31 @@ class System:
             self.last_percent = System.DiskStats.disk_info("percent")
 
         def stale(self, threshold):
+            """
+            Checks if the disk statistics are stale based on the given threshold.
+
+            Args:
+                threshold (int): The threshold in microseconds.
+
+            Returns:
+                bool: True if the statistics are stale, False otherwise.
+            """
             if self.time_stamp is None:
                 return True
             else:
                 return (datetime.datetime.now().microsecond - self.time_stamp.microsecond) > threshold
 
         def readings(self, threshold=100):
+            """
+            Retrieves the current disk readings, updating if necessary.
+
+            Args:
+                threshold (int): The threshold in microseconds.
+
+            Returns:
+                dict: The current disk readings.
+            """
+
             if self.stale(threshold):
                 self.update()
             return {
@@ -411,9 +646,28 @@ class System:
             }
 
     class MemoryStats:
+        """
+        Represents memory statistics.
+
+        Attributes:
+            time_stamp (datetime): The timestamp of the last update.
+            last_total (float): The last recorded total memory.
+            last_available (float): The last recorded available memory.
+            last_used (float): The last recorded used memory.
+            last_percent (float): The last recorded memory usage percentage.
+        """
 
         @staticmethod
         def memory_info(reading):
+            """
+            Retrieves memory information based on the specified reading type.
+
+            Args:
+                reading (str): The type of memory information to retrieve.
+
+            Returns:
+                float: The requested memory information.
+            """
             try:
                 if reading == "total":
                     return round(psutil.virtual_memory().total / (1024.0 ** 3), 2)
@@ -427,6 +681,9 @@ class System:
                 return None
 
         def __init__(self):
+            """
+            Initializes the MemoryStats instance.
+            """
             self.time_stamp = None
             self.last_total = None
             self.last_available = None
@@ -434,6 +691,13 @@ class System:
             self.last_percent = None
 
         def status(self):
+            """
+            Returns the status of the memory as a formatted string.
+
+            Returns:
+                str: The status of the memory.
+            """
+
             reading = self.readings()
             r = f"""
             - time: {reading["time"]}
@@ -445,6 +709,10 @@ class System:
             return textwrap.dedent(r).strip()
 
         def update(self):
+            """
+            Updates the memory statistics.
+            """
+
             self.time_stamp = datetime.datetime.now()
             self.last_total = System.MemoryStats.memory_info("total")
             self.last_available = System.MemoryStats.memory_info("available")
@@ -452,12 +720,32 @@ class System:
             self.last_percent = System.MemoryStats.memory_info("percent")
 
         def stale(self, threshold):
+            """
+            Checks if the memory statistics are stale based on the given threshold.
+
+            Args:
+                threshold (int): The threshold in microseconds.
+
+            Returns:
+                bool: True if the statistics are stale, False otherwise.
+            """
+
             if self.time_stamp is None:
                 return True
             else:
                 return (datetime.datetime.now().microsecond - self.time_stamp.microsecond) > threshold
 
         def readings(self, threshold=100):
+            """
+            Retrieves the current memory readings, updating if necessary.
+
+            Args:
+                threshold (int): The threshold in microseconds.
+
+            Returns:
+                dict: The current memory readings.
+            """
+
             if self.stale(threshold):
                 self.update()
             return {
@@ -469,10 +757,29 @@ class System:
             }
 
     class LinuxDetails:
+        """
+        Represents Linux-specific OS details.
+
+        Attributes:
+            YAML_VERSION (str): The version of the YAML format.
+            errors (list): List of errors encountered during initialization.
+            source (str): The source of the OS details.
+            details (dict): The OS details.
+            vsn (str): Version string.
+            configured (bool): Indicates if the details are configured.
+        """
+
         YAML_VERSION = "0.0.1"
 
         @staticmethod
         def os_release_details():
+            """
+            Retrieves OS release details from /etc/os-release.
+
+            Returns:
+                tuple: A tuple containing the source and details dictionary.
+            """
+
             try:
                 # Attempt to parse /etc/os-release first
                 distro_info = {}
@@ -490,6 +797,13 @@ class System:
 
         @staticmethod
         def uname_details():
+            """
+            Retrieves OS details using the uname command.
+
+            Returns:
+                tuple: A tuple containing the source and details dictionary.
+            """
+
             try:
                 uname_info = subprocess.check_output(['uname', '-a']).decode('utf-8').strip().split()
                 distro_info = {'os_type': uname_info[0], 'os_release': uname_info[2], 'os_version': uname_info[3]}
@@ -499,6 +813,12 @@ class System:
 
         @staticmethod
         def proc_details():
+            """
+            Retrieves OS details from /proc/version.
+
+            Returns:
+                tuple: A tuple containing the source and details dictionary.
+            """
             try:
                 # Fallback to parsing /proc/version
                 with open('/proc/version', 'r') as f:
@@ -509,6 +829,14 @@ class System:
                 return None
 
         def __init__(self, config_data, fetch=False):
+            """
+            Initializes the LinuxDetails instance with the given configuration data.
+
+            Args:
+                config_data (dict): Configuration data for the OS details.
+                fetch (bool): Whether to fetch the details.
+            """
+
             self.errors = []
             self.source = None
             self.details = {}
@@ -532,6 +860,13 @@ class System:
 
 
         def status(self):
+            """
+            Returns the status of the OS details as a formatted string.
+
+            Returns:
+                str: The status of the OS details.
+            """
+
             details = "\n".join(f"- {key}: {value}" for key, value in (self.details or {}).items())
             details = textwrap.indent(details, "  ")
             r = textwrap.dedent(f"""
@@ -542,12 +877,29 @@ class System:
             return textwrap.dedent(r).strip()
 
         def is_configured(self):
+            """
+            Checks if the OS details are configured.
+
+            Returns:
+                bool: True if the details are configured, False otherwise.
+            """
+
             if (self.configured is None):
                 return True
             else:
                 return self.configured
 
         def to_yaml(self, options = {}):
+            """
+            Converts the OS details to a YAML-compatible dictionary.
+
+            Args:
+                options (dict): Options for YAML conversion.
+
+            Returns:
+                dict: The OS details in YAML format.
+            """
+
             return {
                 "vsn": self.vsn if self.vsn is not None else System.LinuxDetails.YAML_VERSION,
                 "kind": "Linux",
@@ -556,10 +908,29 @@ class System:
             }
 
     class DarwinDetails:
+        """
+        Represents Darwin (MacOS)-specific OS details.
+
+        Attributes:
+            YAML_VERSION (str): The version of the YAML format.
+            errors (list): List of errors encountered during initialization.
+            source (str): The source of the OS details.
+            details (dict): The OS details.
+            vsn (str): Version string.
+            configured (bool): Indicates if the details are configured.
+        """
+
         YAML_VERSION = "0.0.1"
 
         @staticmethod
         def darwin_details():
+            """
+            Retrieves OS details using the sw_vers command.
+
+            Returns:
+                tuple: A tuple containing the source and details dictionary.
+            """
+
             try:
                 version_info = subprocess.check_output(['sw_vers']).decode('utf-8')
                 version_dict = {}
@@ -575,6 +946,14 @@ class System:
                 return None
 
         def __init__(self, config_data, fetch=False):
+            """
+            Initializes the DarwinDetails instance with the given configuration data.
+
+            Args:
+                config_data (dict): Configuration data for the OS details.
+                fetch (bool): Whether to fetch the details.
+            """
+
             self.errors = []
             self.source = None
             self.details = {}
@@ -598,6 +977,13 @@ class System:
 
 
         def status(self):
+            """
+            Returns the status of the OS details as a formatted string.
+
+            Returns:
+                str: The status of the OS details.
+            """
+
             details = "\n".join(f"{key}: {value}" for key, value in (self.details or {}).items())
             details = textwrap.indent(details, "  ")
             r = f"""
@@ -608,12 +994,25 @@ class System:
             return textwrap.dedent(r).strip()
 
         def is_configured(self):
+            """
+            Checks if the OS details are configured.
+
+            Returns:
+                bool: True if the details are configured, False otherwise.
+            """
+
             if (self.configured is None):
                 return True
             else:
                 return self.configured
 
         def to_yaml(self):
+            """
+            Converts the OS details to a YAML-compatible dictionary.
+
+            Returns:
+                dict: The OS details in YAML format.
+            """
             return {
                 "vsn": self.vsn if self.vsn is not None else System.DarwinDetails.YAML_VERSION,
                 "kind": "Darwin",
@@ -623,10 +1022,29 @@ class System:
 
 
     class BSDDetails:
+        """
+        Represents BSD-specific OS details.
+
+        Attributes:
+            YAML_VERSION (str): The version of the YAML format.
+            errors (list): List of errors encountered during initialization.
+            source (str): The source of the OS details.
+            details (dict): The OS details.
+            vsn (str): Version string.
+            configured (bool): Indicates if the details are configured.
+        """
+
         YAML_VERSION = "0.0.1"
 
         @staticmethod
         def uname_details():
+            """
+            Retrieves OS details using the uname command.
+
+            Returns:
+                tuple: A tuple containing the source and details dictionary.
+            """
+
             try:
                 version_info = subprocess.check_output(['uname', '-v']).decode('utf-8')
                 version_dict = {}
@@ -641,6 +1059,14 @@ class System:
                 return None
 
         def __init__(self, config_data, fetch=False):
+            """
+            Initializes the BSDDetails instance with the given configuration data.
+
+            Args:
+                config_data (dict): Configuration data for the OS details.
+                fetch (bool): Whether to fetch the details.
+            """
+
             self.errors = []
             self.source = None
             self.details = {}
@@ -666,6 +1092,13 @@ class System:
             self.configured = self.is_configured()
 
         def status(self):
+            """
+            Returns the status of the OS details as a formatted string.
+
+            Returns:
+                str: The status of the OS details.
+            """
+
             details = "\n".join(f"{key}: {value}" for key, value in (self.details or {}).items())
             details = textwrap.indent(details, "  ")
             r = f"""
@@ -676,12 +1109,26 @@ class System:
             return textwrap.dedent(r).strip()
 
         def is_configured(self):
+            """
+            Checks if the OS details are configured.
+
+            Returns:
+                bool: True if the details are configured, False otherwise.
+            """
+
             if (self.configured is None):
                 return True
             else:
                 return self.configured
 
         def to_yaml(self):
+            """
+            Converts the OS details to a YAML-compatible dictionary.
+
+            Returns:
+                dict: The OS details in YAML format.
+            """
+
             return {
                 "vsn": self.vsn if self.vsn is not None else System.BSDDetails.YAML_VERSION,
                 "kind": "BSD",
@@ -691,10 +1138,28 @@ class System:
 
 
     class WindowsDetails:
+        """
+        Represents Windows-specific OS details.
+
+        Attributes:
+            YAML_VERSION (str): The version of the YAML format.
+            errors (list): List of errors encountered during initialization.
+            source (str): The source of the OS details.
+            details (dict): The OS details.
+            vsn (str): Version string.
+            configured (bool): Indicates if the details are configured.
+        """
+
         YAML_VERSION = "0.0.1"
 
         @staticmethod
         def system_info_details():
+            """
+            Retrieves OS details using the systeminfo command.
+
+            Returns:
+                tuple: A tuple containing the source and details dictionary.
+            """
             try:
                 version_info = subprocess.check_output(['systeminfo']).decode('utf-8')
                 version_dict = {}
@@ -710,6 +1175,14 @@ class System:
                 return None
 
         def __init__(self, config_data, fetch=False):
+            """
+            Initializes the WindowsDetails instance with the given configuration data.
+
+            Args:
+                config_data (dict): Configuration data for the OS details.
+                fetch (bool): Whether to fetch the details.
+            """
+
             self.errors = []
             self.source = None
             self.details = {}
@@ -736,6 +1209,13 @@ class System:
             self.configured = self.is_configured()
 
         def status(self):
+            """
+            Returns the status of the OS details as a formatted string.
+
+            Returns:
+                str: The status of the OS details.
+            """
+
             details = "\n".join(f"{key}: {value}" for key, value in (self.details or {}).items())
             details = textwrap.indent(details, "  ")
             r = f"""
@@ -746,15 +1226,31 @@ class System:
             return textwrap.dedent(r).strip()
 
         def is_configured(self):
+            """
+            Checks if the OS details are configured.
+
+            Returns:
+                bool: True if the details are configured, False otherwise.
+            """
+
             if (self.configured is None):
                 return True
             else:
                 return self.configured
 
         def to_yaml(self):
+            """
+            Converts the OS details to a YAML-compatible dictionary.
+
+            Returns:
+                dict: The OS details in YAML format.
+            """
+
             return {
                 "vsn": self.vsn if self.vsn is not None else System.WindowsDetails.YAML_VERSION,
                 "kind": "Windows",
                 "source": self.source,
                 "details": self.details,
             }
+
+

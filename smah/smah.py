@@ -23,22 +23,10 @@ Note:
 Ensure the environment is set up with the necessary dependencies before executing this script.
 """
 
-
-import os
-import argparse
-import textwrap
-import yaml
-import rich
-from rich.prompt import Prompt, Confirm
-from rich.markdown import Markdown
-from rich.console import Console
 import logging
-import sys
-from smah.console import std_console, err_console
-
-from smah.settings import Settings
+from smah.settings.settings import Settings
 from smah.runner import Runner
-import smah.logging
+import smah.logs
 import smah.args
 
 def main():
@@ -53,7 +41,7 @@ def main():
         Exception: If an unexpected error occurs during execution.
     """
     # Configure logging
-    smah.logging.configure()
+    smah.logs.configure()
 
     try:
         args, pipe = smah.args.extract_args()
@@ -65,7 +53,7 @@ def main():
             settings.configure()
             show = True
 
-        smah.logging.log_settings(settings, print=show, format=args.gui)
+        smah.logs.log_settings(settings, print=show, format=args.gui)
 
         runner = Runner(args, settings)
 
@@ -118,7 +106,7 @@ def process_instructions(runner: Runner, instructions_file: str, pipe: str) -> N
                 if pipe:
                     runner.pipe(query=instructions, pipe=pipe)
                 else:
-                    runner.query(query=instructions.query)
+                    runner.query(query=instructions)
     except FileNotFoundError:
         logging.error("Instruction file not found: %s", instructions_file)
     except IOError as e:

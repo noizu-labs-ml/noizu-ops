@@ -3,11 +3,9 @@ import textwrap
 import yaml
 from typing import Optional, Dict, Any
 from smah.inference_providers import InferenceProvider
-from attr.converters import optional
-from rich.prompt import Prompt, Confirm
 from rich.console import Console
-from smah._settings.user import User
-from smah._settings.system import System
+from smah.settings.user import User
+from smah.settings.system import System
 import logging
 
 class Settings:

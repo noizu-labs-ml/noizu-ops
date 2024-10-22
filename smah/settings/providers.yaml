@@ -1,0 +1,871 @@
+providers:
+  anthropic:
+    enabled: false
+    details:
+      api_key: ${SMAH_ANTHROPIC_API_KEY}
+    models:
+      - name: claude-3-5-sonnet
+        model: claude-3-5-sonnet-20240620
+        enabled: true
+        description: "Claude 3.5 Sonnet: Most intelligent model."
+        version: "3.5"
+        context_window: 200000
+        max_output_tokens: 8192
+        training_data: "Up to 2024" # Assumed based on model date
+        license: "Proprietary" # Assumed
+        strengths:
+          - "Highest level of intelligence and capability"
+          - "Multilingual support"
+          - "Vision capabilities"
+        weaknesses:
+          - "Higher input/output cost"
+        attributes:
+          speed: 6
+          reasoning: 7
+          planning: 7
+          creativity: 7
+          conciseness: 6 # Assumed based on other attributes
+          coding: 6 # Assumed based on other attributes
+        input_modalities:
+          - "Text"
+          - "Images"
+        output_modalities:
+          - "Text"
+        top_tasks:
+          - name: "Complex problem solving"
+            cost_to_benefit: 8
+            prompt_hints: []
+          - name: "Multilingual tasks"
+            cost_to_benefit: 7
+            prompt_hints: []
+          - name: "Rich human-like interactions"
+            cost_to_benefit: 7
+            prompt_hints: []
+        pricing:
+          input_token_price_per_million: 15.00 # Placeholder value
+          output_token_price_per_million: 75.00 # Placeholder value
+
+      - name: claude-3-opus
+        model: claude-3-opus-20240229
+        enabled: true
+        description: "Claude 3 Opus: Powerful model for highly complex tasks."
+        version: "3.0"
+        context_window: 200000
+        max_output_tokens: 4096
+        training_data: "Up to 2024" # Assumed based on model date
+        license: "Proprietary" # Assumed
+        strengths:
+          - "Top-level performance, intelligence, fluency, and understanding"
+          - "Multilingual support"
+          - "Vision capabilities"
+        weaknesses:
+          - "Higher input/output cost"
+        attributes:
+          speed: 4
+          reasoning: 7
+          planning: 7
+          creativity: 7
+          conciseness: 6 # Assumed based on other attributes
+          coding: 6 # Assumed based on other attributes
+        input_modalities:
+          - "Text"
+          - "Images"
+        output_modalities:
+          - "Text"
+        top_tasks:
+          - name: "Highly complex reasoning"
+            cost_to_benefit: 8
+            prompt_hints: []
+          - name: "Advanced multilingual communication"
+            cost_to_benefit: 7
+            prompt_hints: []
+          - name: "In-depth problem solving"
+            cost_to_benefit: 8
+            prompt_hints: []
+        pricing:
+          input_token_price_per_million: 15.00 # Placeholder value
+          output_token_price_per_million: 75.00 # Placeholder value
+
+      - name: claude-3-sonnet
+        model: claude-3-sonnet-20240229
+        enabled: true
+        description: "Claude 3 Sonnet: Balance of intelligence and speed."
+        version: "3.0"
+        context_window: 200000
+        max_output_tokens: 4096
+        training_data: "Up to 2024" # Assumed based on model date
+        license: "Proprietary" # Assumed
+        strengths:
+          - "Strong utility, balanced for scaled deployments"
+          - "Multilingual support"
+          - "Vision capabilities"
+        weaknesses:
+          - "Standard output cost"
+        attributes:
+          speed: 6
+          reasoning: 6
+          planning: 6
+          creativity: 6
+          conciseness: 6 # Assumed based on other attributes
+          coding: 6 # Assumed based on other attributes
+        input_modalities:
+          - "Text"
+          - "Images"
+        output_modalities:
+          - "Text"
+        top_tasks:
+          - name: "Balanced intelligence tasks"
+            cost_to_benefit: 7
+            prompt_hints: []
+          - name: "Scaled deployments"
+            cost_to_benefit: 8
+            prompt_hints: []
+          - name: "Multilingual processing"
+            cost_to_benefit: 7
+            prompt_hints: []
+        pricing:
+          input_token_price_per_million: 10.00 # Placeholder value
+          output_token_price_per_million: 50.00 # Placeholder value
+
+      - name: claude-3-haiku
+        model: claude-3-haiku-20240307
+        enabled: true
+        description: "Claude 3 Haiku: Fastest and most compact model for near-instant responsiveness."
+        version: "3.0"
+        context_window: 200000
+        max_output_tokens: 4096
+        training_data: "Up to 2024" # Assumed based on model date
+        license: "Proprietary" # Assumed
+        strengths:
+          - "Quick and accurate targeted performance"
+          - "Multilingual support"
+          - "Vision capabilities"
+        weaknesses:
+          - "Standard output capability"
+        attributes:
+          speed: 7
+          reasoning: 4
+          planning: 4
+          creativity: 4
+          conciseness: 6 # Assumed based on other attributes
+          coding: 5 # Assumed based on other attributes
+        input_modalities:
+          - "Text"
+          - "Images"
+        output_modalities:
+          - "Text"
+        top_tasks:
+          - name: "Near-instant responsiveness"
+            cost_to_benefit: 9
+            prompt_hints: []
+          - name: "Quick data processing"
+            cost_to_benefit: 8
+            prompt_hints: []
+          - name: "Fast multilingual tasks"
+            cost_to_benefit: 7
+            prompt_hints: []
+        pricing:
+          input_token_price_per_million: 5.00 # Placeholder value
+          output_token_price_per_million: 25.00 # Placeholder value
+  openai:
+    enabled: true
+    details:
+      api_key: ${SMAH_OPENAI_API_KEY}
+      org: ${SMAH_OPENAI_ORG_ID}
+      tier: ${SMAH_OPENAI_API_TIER}
+    models:
+      - name: gpt-4o
+        model: gpt-4o
+        enabled: true
+        description: "GPT-4o: Our high-intelligence flagship model for complex, multi-step tasks. GPT-4o is cheaper and faster than GPT-4 Turbo. Currently points to gpt-4o-2024-08-06."
+        version: "2024-08-06"
+        context_window: 128000
+        max_output_tokens: 16384
+        training_data: "Up to Oct 2023"
+        license: "Proprietary" # Assumed
+        strengths:
+          - "Advanced reasoning"
+          - "High intelligence for complex tasks"
+          - "Cost-effective compared to GPT-4 Turbo"
+        weaknesses:
+          - "Slightly less capable than GPT-4 Turbo"
+          - "Requires precise prompting for optimal results"
+          - "Higher resource consumption for large-scale tasks"
+        attributes:
+          speed: 6
+          reasoning: 7
+          planning: 7
+          creativity: 6
+          conciseness: 6
+          coding: 7
+        input_modalities:
+          - "Text"
+        output_modalities:
+          - "Text"
+        top_tasks:
+          - name: "Complex problem solving"
+            cost_to_benefit: 8
+            prompt_hints: []
+          - name: "Strategic planning"
+            cost_to_benefit: 8
+            prompt_hints: []
+          - name: "Advanced code generation"
+            cost_to_benefit: 7
+            prompt_hints: []
+        pricing:
+          input_token_price_per_million: 30.00 # Placeholder value
+          output_token_price_per_million: 60.00 # Placeholder value
+
+      - name: gpt-4o-mini
+        model: gpt-4o-mini
+        enabled: true
+        description: "GPT-4o-mini: Our affordable and intelligent small model for fast, lightweight tasks. GPT-4o-mini is cheaper and more capable than GPT-3.5 Turbo. Currently points to gpt-4o-mini-2024-07-18."
+        version: "2024-07-18"
+        context_window: 128000
+        max_output_tokens: 16384
+        training_data: "Up to Oct 2023"
+        license: "Proprietary" # Assumed
+        strengths:
+          - "High efficiency for lightweight tasks"
+          - "Cost-effective while maintaining intelligence"
+          - "Fast response times"
+        weaknesses:
+          - "Less capable for highly complex tasks"
+          - "Limited reasoning depth compared to larger models"
+          - "Smaller context window relative to specialized models"
+        attributes:
+          speed: 7
+          reasoning: 4
+          planning: 4
+          creativity: 4
+          conciseness: 6
+          coding: 6
+        input_modalities:
+          - "Text"
+        output_modalities:
+          - "Text"
+        top_tasks:
+          - name: "Quick content generation"
+            cost_to_benefit: 8
+            prompt_hints: []
+          - name: "Simple data extraction"
+            cost_to_benefit: 7
+            prompt_hints: []
+          - name: "Basic question answering"
+            cost_to_benefit: 7
+            prompt_hints: []
+        pricing:
+          input_token_price_per_million: 10.00 # Placeholder value
+          output_token_price_per_million: 20.00 # Placeholder value
+
+      - name: o1-preview
+        model: o1-preview
+        enabled: false
+        description: "o1-preview: Reasoning model designed to solve hard problems across domains. Points to the most recent snapshot of the o1 model: o1-preview-2024-09-12."
+        version: "2024-09-12"
+        context_window: 128000
+        max_output_tokens: 32768
+        training_data: "Up to Oct 2023"
+        license: "Proprietary" # Assumed
+        strengths:
+          - "Strong multi-domain reasoning capabilities"
+          - "Effective at solving complex problems"
+          - "Adaptable to various specialized tasks"
+        weaknesses:
+          - "May require precise and detailed prompts"
+          - "Potential overfitting on specific problem types"
+          - "Less creative in open-ended tasks"
+        attributes:
+          speed: 4
+          reasoning: 6
+          planning: 6
+          creativity: 4
+          conciseness: 6
+          coding: 6
+        input_modalities:
+          - "Text"
+        output_modalities:
+          - "Text"
+        top_tasks:
+          - name: "Detailed analysis"
+            cost_to_benefit: 7
+            prompt_hints: []
+          - name: "Instruction following"
+            cost_to_benefit: 8
+            prompt_hints: []
+          - name: "Complex reasoning tasks"
+            cost_to_benefit: 7
+            prompt_hints: []
+        pricing:
+          input_token_price_per_million: 40.00 # Placeholder value
+          output_token_price_per_million: 80.00 # Placeholder value
+
+      - name: o1-mini
+        model: o1-mini
+        enabled: false
+        description: "o1-mini: Faster and cheaper reasoning model particularly good at coding, math, and science. Points to the most recent o1-mini snapshot: o1-mini-2024-09-12."
+        version: "2024-09-12"
+        context_window: 128000
+        max_output_tokens: 65536
+        training_data: "Up to Oct 2023"
+        license: "Proprietary" # Assumed
+        strengths:
+          - "Efficient reasoning for specialized domains"
+          - "Excellent performance in coding, math, and science tasks"
+          - "High processing speed with cost-effectiveness"
+        weaknesses:
+          - "Limited depth in reasoning compared to full-scale models"
+          - "May simplify highly complex tasks"
+          - "Smaller context window for extensive data processing"
+        attributes:
+          speed: 6
+          reasoning: 4
+          planning: 4
+          creativity: 4
+          conciseness: 6
+          coding: 7
+        input_modalities:
+          - "Text"
+        output_modalities:
+          - "Text"
+        top_tasks:
+          - name: "Basic reasoning"
+            cost_to_benefit: 7
+            prompt_hints: []
+          - name: "Lightweight instruction following"
+            cost_to_benefit: 8
+            prompt_hints: []
+          - name: "Simple data processing"
+            cost_to_benefit: 7
+            prompt_hints: []
+        pricing:
+          input_token_price_per_million: 20.00 # Placeholder value
+          output_token_price_per_million: 40.00 # Placeholder value
+
+      - name: gpt-4-turbo
+        model: gpt-4-turbo
+        enabled: true
+        description: "GPT-4 Turbo: The latest GPT-4 Turbo model with vision capabilities. Vision requests can now use JSON mode and function calling. Currently points to gpt-4-turbo-2024-04-09."
+        version: "2024-04-09"
+        context_window: 128000
+        max_output_tokens: 4096
+        training_data: "Up to Dec 2023"
+        license: "Proprietary" # Assumed
+        strengths:
+          - "Advanced vision and language processing"
+          - "Improved efficiency over previous GPT-4 models"
+          - "Strong performance in multimodal tasks"
+        weaknesses:
+          - "Higher operational costs compared to mini models"
+          - "Slower response times than smaller models"
+          - "Potential for occasional inaccuracies in complex scenarios"
+        attributes:
+          speed: 4
+          reasoning: 7
+          planning: 6
+          creativity: 6
+          conciseness: 6
+          coding: 7
+        input_modalities:
+          - "Text"
+          - "Images"
+        output_modalities:
+          - "Text"
+        top_tasks:
+          - name: "Advanced project planning"
+            cost_to_benefit: 7
+            prompt_hints: []
+          - name: "Complex coding solutions"
+            cost_to_benefit: 8
+            prompt_hints: []
+          - name: "In-depth question answering"
+            cost_to_benefit: 7
+            prompt_hints: []
+        pricing:
+          input_token_price_per_million: 60.00 # Placeholder value
+          output_token_price_per_million: 120.00 # Placeholder value
+
+      - name: gpt-4
+        model: gpt-4
+        enabled: true
+        description: "GPT-4: The previous set of high-intelligence models."
+        version: "2023-12" # Assumed based on training data
+        context_window: 128000
+        max_output_tokens: 4096
+        training_data: "Up to Dec 2023"
+        license: "Proprietary" # Assumed
+        strengths:
+          - "Advanced language understanding"
+          - "Excellent performance across diverse tasks"
+          - "High accuracy and reliability"
+        weaknesses:
+          - "Higher operational costs"
+          - "Longer response times compared to smaller models"
+          - "Requires significant computational resources"
+        attributes:
+          speed: 3
+          reasoning: 7
+          planning: 6
+          creativity: 7
+          conciseness: 6
+          coding: 7
+        input_modalities:
+          - "Text"
+        output_modalities:
+          - "Text"
+        top_tasks:
+          - name: "Comprehensive research summaries"
+            cost_to_benefit: 7
+            prompt_hints: []
+          - name: "Creative writing and storytelling"
+            cost_to_benefit: 8
+            prompt_hints: []
+          - name: "Complex data analysis"
+            cost_to_benefit: 7
+            prompt_hints: []
+        pricing:
+          input_token_price_per_million: 50.00 # Placeholder value
+          output_token_price_per_million: 100.00 # Placeholder value
+  groq:
+    enabled: false
+    details:
+      api_key: ${SMAH_GROQ_API_KEY}
+    models:
+      - name: llama-3-70b-8k
+        model: llama-3-70b-8k
+        enabled: true
+        description: "Llama 3 70B 8k: Multilingual text and code processing model with high speed."
+        version: "3"
+        context_window: 128000
+        max_output_tokens: 32000 # Assumed value
+        training_data: "Publicly available online data"
+        license: "Proprietary" # Assumed
+        strengths:
+          - "High processing speed"
+          - "Multilingual text and code capabilities"
+        weaknesses:
+          - "Cost considerations for large tasks"
+        attributes:
+          speed: 8 # High based on "high speed" mention
+          reasoning: 7 # Assumed based on large parameter count
+          planning: 6 # Assumed
+          creativity: 6 # Assumed
+          conciseness: 6 # Assumed
+          coding: 7 # Assumed based on code capabilities
+        input_modalities:
+          - "Multilingual Text"
+        output_modalities:
+          - "Multilingual Text"
+          - "Code"
+        top_tasks:
+          - name: "Multilingual text processing"
+            cost_to_benefit: 8
+            prompt_hints: []
+          - name: "Code generation and analysis"
+            cost_to_benefit: 7
+            prompt_hints: []
+          - name: "High-speed data processing"
+            cost_to_benefit: 8
+            prompt_hints: []
+        pricing:
+          input_token_price_per_million: 0.59
+          output_token_price_per_million: 0.79
+        additional_info:
+          speed_tokens_per_second: 330
+          params: "70B"
+          gqa: true
+          token_count: "15T+"
+          knowledge_cutoff: "December 2023"
+
+      - name: llama-3.1-text-only
+        model: llama-3.1-text-only
+        enabled: true
+        description: "Llama 3.1: A text-only model built from a new mix of publicly available online data."
+        version: "3.1"
+        context_window: 128000
+        max_output_tokens: 32000 # Assumed value
+        training_data: "Publicly available online data"
+        license: "Proprietary" # Assumed
+        strengths:
+          - "Focused text processing capabilities"
+          - "High parameter count for nuanced understanding"
+        weaknesses:
+          - "Limited to text-only processing"
+        attributes:
+          speed: 8 # Based on same speed as llama-3-70b-8k
+          reasoning: 6 # Assumed based on "nuanced understanding"
+          planning: 5 # Assumed
+          creativity: 5 # Assumed
+          conciseness: 6 # Assumed
+          coding: 4 # Lower due to text-only focus
+        input_modalities:
+          - "Multilingual Text"
+        output_modalities:
+          - "Multilingual Text"
+        top_tasks:
+          - name: "Text analysis and processing"
+            cost_to_benefit: 7
+            prompt_hints: []
+          - name: "Multilingual document generation"
+            cost_to_benefit: 7
+            prompt_hints: []
+          - name: "Detailed content understanding"
+            cost_to_benefit: 6
+            prompt_hints: []
+        pricing:
+          input_token_price_per_million: 0.59
+          output_token_price_per_million: 0.79
+        additional_info:
+          speed_tokens_per_second: 330
+          params: "8B"
+          gqa: true
+          token_count: "15T+"
+          knowledge_cutoff: "December 2023"
+
+      - name: mixtral-8x7b-instruct-32k
+        model: mixtral-8x7b-instruct-32k
+        enabled: true
+        description: "Mixtral 8x7B Instruct 32k: Efficient and cost-effective model for instruction-based tasks."
+        version: "8x7B"
+        context_window: 32000
+        max_output_tokens: 8000 # Assumed value
+        training_data: "Not specified"
+        license: "Proprietary" # Assumed
+        strengths:
+          - "High efficiency and cost-effectiveness"
+          - "Optimized for instruction-based tasks"
+        weaknesses:
+          - "Limited context window for extremely large data sets"
+        attributes:
+          speed: 9 # Higher speed based on tokens per second
+          reasoning: 6 # Assumed based on instruction optimization
+          planning: 6 # Assumed based on instruction optimization
+          creativity: 5 # Assumed
+          conciseness: 7 # Assumed based on efficiency mention
+          coding: 5 # Assumed
+        input_modalities:
+          - "Instructions"
+        output_modalities:
+          - "Multilingual Text"
+        top_tasks:
+          - name: "Instruction following"
+            cost_to_benefit: 8
+            prompt_hints: []
+          - name: "Cost-efficient multilingual processing"
+            cost_to_benefit: 9
+            prompt_hints: []
+          - name: "Rapid task execution"
+            cost_to_benefit: 8
+            prompt_hints: []
+        pricing:
+          input_token_price_per_million: 0.24
+          output_token_price_per_million: 0.24
+        additional_info:
+          speed_tokens_per_second: 575
+          params: "8x7B"
+          gqa: true
+          token_count: "Not specified"
+  mistral:
+    enabled: false
+    details:
+      api_key: ${SMAH_MISTRAL_API_KEY}
+    models:
+      - name: mistral-large
+        model: "mistral-large-latest"
+        enabled: true
+        description: "Mistral Large: Our top-tier reasoning model for high-complexity tasks with the latest version v2 released July 2024."
+        version: "v2"
+        release_version: "24.07"
+        context_window: 128000
+        max_output_tokens: 32000 # Assumed value
+        training_data: "Up to 2024" # Assumed based on release date
+        license: "Mistral Research License"
+        strengths:
+          - "Top-tier reasoning"
+          - "Handles high-complexity tasks"
+          - "Latest updates and enhancements"
+        weaknesses:
+          - "Limited to research license"
+        attributes:
+          speed: 4
+          reasoning: 7
+          planning: 7
+          creativity: 6
+          conciseness: 6 # Assumed based on other attributes
+          coding: 6 # Assumed based on other attributes
+        input_modalities:
+          - "Text"
+        output_modalities:
+          - "Text"
+        top_tasks:
+          - name: "High-complexity reasoning"
+            cost_to_benefit: 8
+            prompt_hints: []
+          - name: "Advanced problem-solving"
+            cost_to_benefit: 8
+            prompt_hints: []
+          - name: "Complex data analysis"
+            cost_to_benefit: 7
+            prompt_hints: []
+        pricing:
+          input_token_price_per_million: 50.00 # Placeholder value
+          output_token_price_per_million: 100.00 # Placeholder value
+
+      - name: codestral
+        model: "codestral-latest"
+        enabled: true
+        description: "Codestral: Our cutting-edge language model for coding released May 2024."
+        version: "latest"
+        release_version: "24.05"
+        context_window: 32000
+        max_output_tokens: 8000 # Assumed value
+        training_data: "Up to 2024" # Assumed based on release date
+        license: "Mistral Non-Production License"
+        strengths:
+          - "Cutting-edge coding capabilities"
+          - "Efficient for programming tasks"
+          - "Released with latest enhancements"
+        weaknesses:
+          - "Limited to non-production environments"
+        attributes:
+          speed: 6
+          reasoning: 6
+          planning: 6
+          creativity: 4
+          conciseness: 6 # Assumed based on other attributes
+          coding: 7 # Assumed based on specialization
+        input_modalities:
+          - "Text"
+        output_modalities:
+          - "Text"
+        top_tasks:
+          - name: "Code generation and understanding"
+            cost_to_benefit: 8
+            prompt_hints: []
+          - name: "Programming assistance"
+            cost_to_benefit: 7
+            prompt_hints: []
+          - name: "Debugging support"
+            cost_to_benefit: 7
+            prompt_hints: []
+        pricing:
+          input_token_price_per_million: 30.00 # Placeholder value
+          output_token_price_per_million: 60.00 # Placeholder value
+
+      - name: pixtral
+        model: "pixtral-12b-2409"
+        enabled: true
+        description: "Pixtral: A 12B model with image understanding capabilities in addition to text."
+        version: "12B"
+        release_version: "24.09"
+        context_window: 128000
+        max_output_tokens: 32000 # Assumed value
+        training_data: "Up to 2024" # Assumed based on release date
+        license: "Apache2"
+        strengths:
+          - "Image understanding"
+          - "Text and image processing"
+          - "Open-source friendly"
+        weaknesses:
+          - "Potential complexity in integrating multi-modal tasks"
+        attributes:
+          speed: 4
+          reasoning: 6
+          planning: 6
+          creativity: 7
+          conciseness: 6 # Assumed based on other attributes
+          coding: 5 # Assumed based on other attributes
+        input_modalities:
+          - "Text"
+          - "Images"
+        output_modalities:
+          - "Text"
+        top_tasks:
+          - name: "Image and text integration"
+            cost_to_benefit: 8
+            prompt_hints: []
+          - name: "Multi-modal content generation"
+            cost_to_benefit: 7
+            prompt_hints: []
+          - name: "Visual data analysis"
+            cost_to_benefit: 7
+            prompt_hints: []
+        pricing:
+          input_token_price_per_million: 40.00 # Placeholder value
+          output_token_price_per_million: 80.00 # Placeholder value
+
+      - name: mistral-medium
+        model: mistral-medium-latest
+        enabled: false
+        description: "Mistral Medium: Currently points to mistral-medium-2312, set for deprecation."
+        version: "latest"
+        release_version: "23.12"
+        model_identifier: "mistral-medium-2312"
+        context_window: 64000
+        max_output_tokens: 16000 # Assumed value
+        training_data: "Up to 2023" # Assumed based on release date
+        license: "Mistral License" # Assumed
+        strengths:
+          - "Balanced capabilities for moderate tasks"
+        weaknesses:
+          - "Set for deprecation"
+          - "Limited future updates"
+        attributes:
+          speed: 4
+          reasoning: 4
+          planning: 4
+          creativity: 4
+          conciseness: 5 # Assumed based on other attributes
+          coding: 4 # Assumed based on other attributes
+        input_modalities:
+          - "Text"
+        output_modalities:
+          - "Text"
+        top_tasks:
+          - name: "Legacy support tasks"
+            cost_to_benefit: 6
+            prompt_hints: []
+          - name: "Basic language processing"
+            cost_to_benefit: 5
+            prompt_hints: []
+          - name: "Standard data manipulation"
+            cost_to_benefit: 5
+            prompt_hints: []
+        pricing:
+          input_token_price_per_million: 20.00 # Placeholder value
+          output_token_price_per_million: 40.00 # Placeholder value
+  google:
+    details:
+      api_key: ${GOOGLE_API_KEY}
+    models:
+      - name: gemini-1.5-flash
+        model: gemini-1.5-flash
+        enabled: true
+        description: "Gemini 1.5 Flash: Fast and versatile performance across a diverse variety of tasks."
+        version: "1.5"
+        context_window: 128000 # Assumed value
+        max_output_tokens: 32000 # Assumed value
+        training_data: "Up to 2024" # Assumed based on model version
+        license: "Proprietary" # Assumed
+        strengths:
+          - "Handles multiple input types including audio, images, videos, and text"
+          - "Versatile across a wide range of tasks"
+        weaknesses:
+          - "May lack depth for specialized tasks"
+        attributes:
+          speed: 9 # High based on "Flash" in name
+          reasoning: 7 # Assumed based on versatility
+          planning: 6 # Assumed
+          creativity: 7 # Assumed based on versatility
+          conciseness: 7 # Assumed
+          coding: 6 # Assumed
+        input_modalities:
+          - "Audio"
+          - "Images"
+          - "Videos"
+          - "Text"
+        output_modalities:
+          - "Text"
+        top_tasks:
+          - name: "Multi-modal content processing"
+            cost_to_benefit: 8
+            prompt_hints: []
+          - name: "Quick text generation from diverse inputs"
+            cost_to_benefit: 9
+            prompt_hints: []
+          - name: "Versatile task execution"
+            cost_to_benefit: 8
+            prompt_hints: []
+        pricing:
+          input_token_price_per_million: 10.00 # Placeholder value
+          output_token_price_per_million: 20.00 # Placeholder value
+        additional_info:
+          optimized_for: "Fast and versatile performance"
+
+      - name: gemini-1.5-flash-8b
+        model: gemini-1.5-flash-8b
+        enabled: true
+        description: "Gemini 1.5 Flash-8B: High volume and lower intelligence tasks."
+        version: "1.5"
+        context_window: 64000 # Assumed value
+        max_output_tokens: 16000 # Assumed value
+        training_data: "Up to 2024" # Assumed based on model version
+        license: "Proprietary" # Assumed
+        strengths:
+          - "Efficient processing for high-volume tasks"
+          - "Supports multiple input types"
+        weaknesses:
+          - "Lower intelligence for complex reasoning"
+        attributes:
+          speed: 9 # High based on "Flash" in name
+          reasoning: 5 # Lower based on "lower intelligence tasks"
+          planning: 4 # Assumed
+          creativity: 5 # Assumed
+          conciseness: 7 # Assumed based on efficiency
+          coding: 5 # Assumed
+        input_modalities:
+          - "Audio"
+          - "Images"
+          - "Videos"
+          - "Text"
+        output_modalities:
+          - "Text"
+        top_tasks:
+          - name: "Batch processing of multimedia inputs"
+            cost_to_benefit: 9
+            prompt_hints: []
+          - name: "High-volume text generation"
+            cost_to_benefit: 8
+            prompt_hints: []
+          - name: "Basic content synthesis"
+            cost_to_benefit: 7
+            prompt_hints: []
+        pricing:
+          input_token_price_per_million: 5.00 # Placeholder value
+          output_token_price_per_million: 10.00 # Placeholder value
+        additional_info:
+          optimized_for: "High volume and lower intelligence tasks"
+
+      - name: gemini-1.5-pro
+        model: gemini-1.5-pro
+        enabled: true
+        description: "Gemini 1.5 Pro: Complex reasoning tasks requiring more intelligence."
+        version: "1.5"
+        context_window: 128000 # Assumed value
+        max_output_tokens: 32000 # Assumed value
+        training_data: "Up to 2024" # Assumed based on model version
+        license: "Proprietary" # Assumed
+        strengths:
+          - "Advanced intelligence for complex tasks"
+          - "Multi-modal input handling"
+        weaknesses:
+          - "Potentially slower for simpler tasks"
+        attributes:
+          speed: 7 # Lower than Flash models
+          reasoning: 9 # High based on "complex reasoning tasks"
+          planning: 8 # Assumed based on complex task handling
+          creativity: 8 # Assumed
+          conciseness: 7 # Assumed
+          coding: 8 # Assumed based on advanced intelligence
+        input_modalities:
+          - "Audio"
+          - "Images"
+          - "Videos"
+          - "Text"
+        output_modalities:
+          - "Text"
+        top_tasks:
+          - name: "Complex reasoning and analytical tasks"
+            cost_to_benefit: 9
+            prompt_hints: []
+          - name: "Detailed content generation"
+            cost_to_benefit: 8
+            prompt_hints: []
+          - name: "Advanced problem solving across modalities"
+            cost_to_benefit: 8
+            prompt_hints: []
+        pricing:
+          input_token_price_per_million: 15.00 # Placeholder value
+          output_token_price_per_million: 30.00 # Placeholder value
+        additional_info:
+          optimized_for: "Complex reasoning tasks"
