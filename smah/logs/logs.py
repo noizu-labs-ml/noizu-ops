@@ -2,9 +2,7 @@ import os
 import logging
 import sys
 from typing import TextIO, Optional
-import yaml
 from datetime import datetime
-import textwrap
 
 from smah.settings.settings import Settings
 from logging.handlers import RotatingFileHandler
@@ -55,30 +53,3 @@ def configure(
         ]
     )
     logging.info("Logging Configured")
-
-
-def log_settings(settings: Settings, format: bool = True, print: bool = False) -> None:
-    """
-    Log current application settings and print them in a configured format.
-
-    Args:
-        settings (Settings): Application settings object.
-        format (bool): Flag to enable/disable formatting of settings when printing.
-        print_settings (bool): Flag to enable/disable printing of settings.
-    """
-    try:
-        settings_yaml = yaml.dump({"settings": settings.to_yaml({"stats": True})}, sort_keys=False)
-        logging.debug("Settings YAML: %s", settings_yaml)
-        if print:
-            formatted_settings = textwrap.dedent(
-                """
-                Settings
-                ========
-                ```yaml
-                {c}
-                ```
-                """
-            ).strip().format(c=settings_yaml)
-            #std_console.print(Markdown(formatted_settings) if format else formatted_settings)
-    except Exception as e:
-        logging.error("Exception raised while logging settings: %s", str(e))

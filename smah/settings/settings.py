@@ -2,6 +2,10 @@ import os
 import textwrap
 import yaml
 from typing import Optional, Dict, Any
+
+from rich.markdown import Markdown
+
+from smah.console import std_console, err_console
 from smah.inference_providers import InferenceProvider
 from rich.console import Console
 from smah.settings.user import User
@@ -59,6 +63,40 @@ class Settings:
         )
 
         self.load_profile()
+
+    def log(self,
+            level: int = logging.DEBUG,
+            format: bool = True,
+            print: bool = False
+            ) -> None:
+        """
+        Log settings and optionally print to stdout.
+
+        Args:
+            format (bool): Flag to enable/disable formatting of settings when printing.
+            print (bool): Flag to enable/disable printing of settings.
+        """
+        try:
+            settings_yaml = yaml.dump({"settings": self.to_yaml({"stats": True})}, sort_keys=False)
+            logging.log(level, "Settings YAML: %s", settings_yaml)
+
+            if print:
+                o = textwrap.dedent(
+                    """
+                    Settings
+                    ========
+                    ```yaml
+                    {settings_yaml}
+                    ```
+                    """
+                ).strip().format(settings_yaml=settings_yaml)
+                if format:
+                    o = Markdown(o)
+                    err_console.print(o)
+                else:
+                    err_console.print(o)
+        except Exception as e:
+            logging.error("Exception raised while logging settings: %s", str(e))
 
     def load_profile(self) -> None:
         """

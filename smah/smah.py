@@ -48,25 +48,24 @@ def main():
         settings = Settings(args)
 
         # If settings are not configured, ask user to provide necessary information
-        show = args.verbose > 3
+        show = args.verbose > 2
         if not settings.is_configured():
             settings.configure()
             show = True
 
-        smah.logs.log_settings(settings, print=show, format=args.gui)
-
+        settings.log(print=show, format=args.gui)
         runner = Runner(args, settings)
 
         if args.query:
-            process_query(runner, args.query, pipe)
+            __process_query(runner, args.query, pipe)
         elif args.instructions:
-            process_instructions(runner, args.instructions, pipe)
+            __process_instructions(runner, args.instructions, pipe)
         else:
             runner.interactive(pipe=pipe)
     except Exception as e:
         logging.error("An unexpected error occurred in main: %s", str(e), exc_info=True)
 
-def process_query(runner: Runner, query: str, pipe: str) -> None:
+def __process_query(runner: Runner, query: str, pipe: str) -> None:
     """
     Process a query using the provided runner.
 
@@ -86,7 +85,7 @@ def process_query(runner: Runner, query: str, pipe: str) -> None:
     except Exception as e:
         logging.error("Error processing query: %s", str(e))
 
-def process_instructions(runner: Runner, instructions_file: str, pipe: str) -> None:
+def __process_instructions(runner: Runner, instructions_file: str, pipe: str) -> None:
     """
     Process instructions from a file using the provided runner.
 
