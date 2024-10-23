@@ -1,7 +1,5 @@
 from typing import Optional, Tuple
 
-from click import Tuple
-
 from .base_info import BaseInfo
 import subprocess
 
