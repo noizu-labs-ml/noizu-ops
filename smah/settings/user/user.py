@@ -1,11 +1,5 @@
-import os
 import textwrap
-import yaml
-from attr.converters import optional
-from prompt_toolkit.layout import is_container
-
 from rich.prompt import Prompt, Confirm
-from rich.console import Console
 
 class User:
     YAML_VERSION = "0.0.1"
@@ -39,16 +33,6 @@ class User:
             self.errors = None
 
         self.configured = self.is_configured()
-
-    def status(self):
-        status = f"""
-        - name: {self.name}
-        - role: {self.role}
-        - experience: {self.experience_level}
-        - about:
-        {textwrap.indent(self.about or "","  ")}
-        """
-        return textwrap.dedent(status).strip()
 
     def is_configured(self):
         if (self.configured is None):

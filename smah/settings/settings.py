@@ -85,30 +85,6 @@ class Settings:
             self.errors = None
         self.configured = self.is_configured()
 
-    def status(self) -> str:
-        """
-        Returns the status of the user and system configurations.
-
-        Returns:
-            str: The status of the user and system configurations.
-        """
-        user_status = self.user.status() if self.user else "Not Available"
-        system_status = self.system.status() if self.system else "Not Available"
-        status = textwrap.dedent(
-            """
-            ## Profile
-            User Info
-            {us}
-
-
-            ## System
-            System Details
-
-            {ss}
-            """
-        ).strip().format(us=user_status, ss=system_status)
-        return status
-
     def is_configured(self) -> bool:
         """
         Checks if the settings are fully configured.
