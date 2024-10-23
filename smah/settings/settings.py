@@ -99,7 +99,7 @@ class Settings:
         try:
             os.makedirs(os.path.dirname(self.config), exist_ok=True)
             with open(self.config, 'w') as file:
-                yaml_content = yaml.dump(self.to_yaml())
+                yaml_content = yaml.dump(self.to_yaml({ "save": True }), sort_keys=False)
                 file.write(yaml_content)
         except Exception as e:
             raise RuntimeError(f"Failed to save profile: {str(e)}")

@@ -1,0 +1,295 @@
+vsn: "0.0.1"
+instructions:
+providers:
+  openai:
+    name: OpenAI
+    description: OpenAI Models
+    enabled: true
+    settings:
+    vsn: "0.0.1"
+    models:
+      - name: "gpt-4-turbo"
+        model: "gpt-4-turbo"
+        description: "GPT-4 Turbo"
+        enabled: true
+        training_cutoff: "2023-12-01"
+        license: "OpenAI License"
+        model_type: "LLM"
+        context:
+          window: 128000
+          out: 4096
+        strengths:
+          - "Highly accurate"
+          - "Fast"
+        weaknesses:
+          - "Expensive"
+          - "Multimodal capabilities limited"
+        modalities:
+          text:
+            in: true
+            out: true
+          image:
+            in: true
+            out: false
+        attributes:
+          speed: 5
+          reasoning: 5
+          planning: 5
+          creativity: 5
+          conciseness: 5
+          coding: 5
+        cost:
+          million_tokens_in: 10.00
+          million_tokens_out: 30.00
+        use_cases:
+          - name: "Code Generation"
+            instructions:
+            notes:
+            score: 0.5
+          - name: "Text Generation"
+            instructions:
+            notes:
+            score: 0.6
+          - name: "Translation"
+            instructions:
+            notes:
+            score: 0.5
+          - name: "Planning"
+            instructions:
+            notes:
+            score: 0.5
+          - name: "Reasoning"
+            score: 0.5
+          - name: "Creativity"
+            score: 0.5
+          - name: "Data Analysis"
+            score: 0.5
+      - name: "gpt-4o"
+        model: "gpt-4o"
+        description: "GPT-4 Omni"
+        enabled: true
+        training_cutoff: "2023-10-01"
+        license: "OpenAI License"
+        model_type: "LLM"
+        context:
+          window: 128000
+          out: 16384
+        strengths:
+          - "Highly accurate"
+          - "Fast"
+          - "Reasoning"
+        weaknesses:
+          - "Expensive"
+          - "Multimodal capabilities limited"
+        modalities:
+          text:
+            in: true
+            out: true
+          image:
+            in: true
+            out: true
+          audio:
+            in: true
+            out: true
+        attributes:
+          speed: 6
+          reasoning: 6
+          planning: 6
+          creativity: 5
+          conciseness: 4
+          coding: 6
+        cost:
+          million_tokens_in: 2.50
+          million_tokens_out: 10.00
+        use_cases:
+          - name: "Code Generation"
+            instructions:
+            notes:
+            score: 0.5
+          - name: "Text Generation"
+            instructions:
+            notes:
+            score: 0.6
+          - name: "Translation"
+            instructions:
+            notes:
+            score: 0.5
+          - name: "Planning"
+            instructions:
+            notes:
+            score: 0.5
+          - name: "Reasoning"
+            score: 0.5
+          - name: "Creativity"
+            score: 0.5
+          - name: "Data Analysis"
+            score: 0.5
+      - name: "gpt-4o-mini"
+        model: "gpt-4o-mini"
+        description: "GPT-4 Omni (Mini)"
+        enabled: true
+        training_cutoff: "2023-10-01"
+        license: "OpenAI License"
+        model_type: "LLM"
+        context:
+          window: 128000
+          out: 16384
+        strengths:
+          - "Highly accurate"
+          - "Fast"
+          - "Multimodal"
+        weaknesses:
+          - "Reasoning"
+        modalities:
+          text:
+            in: true
+            out: true
+          image:
+            in: true
+            out: true
+          audio:
+            in: true
+            out: true
+        attributes:
+          speed: 7
+          reasoning: 4
+          planning: 4
+          creativity: 4
+          conciseness: 4
+          coding: 4
+        cost:
+          million_tokens_in: 0.15
+          million_tokens_out: 0.6
+        use_cases:
+          - name: "Code Generation"
+            instructions:
+            notes:
+            score: 0.4
+          - name: "Text Generation"
+            instructions:
+            notes:
+            score: 0.4
+          - name: "Translation"
+            instructions:
+            notes:
+            score: 0.4
+          - name: "Planning"
+            instructions:
+            notes:
+            score: 0.4
+          - name: "Reasoning"
+            score: 0.4
+          - name: "Creativity"
+            score: 0.4
+          - name: "Data Analysis"
+            score: 0.4
+      - name: "o1"
+        model: "o1-preview"
+        description: "o1"
+        enabled: false
+        training_cutoff: "2023-12-01"
+        license: "OpenAI License"
+        model_type: "LLM"
+        context:
+          window: 128000
+          out: 32768
+        strengths:
+          - "Highly accurate"
+          - "Advanced Reasoning"
+        weaknesses:
+          - "Expensive"
+          - "Multimodal capabilities limited"
+        modalities:
+          text:
+            in: true
+            out: true
+        options:
+          max_completion_tokens: true
+        attributes:
+          speed: 3
+          reasoning: 8
+          planning: 8
+          creativity: 4
+          conciseness: 8
+          coding: 8
+        cost:
+          million_tokens_in: 15.0
+          million_tokens_out: 60.0
+        use_cases:
+          - name: "Code Generation"
+            instructions:
+            notes:
+            score: 0.9
+          - name: "Text Generation"
+            instructions:
+            notes:
+            score: 0.9
+          - name: "Translation"
+            instructions:
+            notes:
+            score: 0.7
+          - name: "Planning"
+            instructions:
+            notes:
+            score: 0.9
+          - name: "Reasoning"
+            score: 0.9
+          - name: "Creativity"
+            score: 0.4
+          - name: "Data Analysis"
+            score: 0.9
+      - name: "o1-mini"
+        model: "o1-mini"
+        description: "o1 (mini)"
+        enabled: false
+        training_cutoff: "2023-12-01"
+        license: "OpenAI License"
+        model_type: "LLM"
+        context:
+          window: 128000
+          out: 32768
+        strengths:
+          - "Highly accurate"
+          - "Advanced Reasoning"
+        weaknesses:
+          - "Expensive"
+          - "Multimodal capabilities limited"
+        modalities:
+          text:
+            in: true
+            out: true
+        options:
+          max_completion_tokens: true
+        attributes:
+          speed: 5
+          reasoning: 7
+          planning: 7
+          creativity: 4
+          conciseness: 7
+          coding: 7
+        cost:
+          million_tokens_in: 3.0
+          million_tokens_out: 12.0
+        use_cases:
+          - name: "Code Generation"
+            instructions:
+            notes:
+            score: 0.7
+          - name: "Text Generation"
+            instructions:
+            notes:
+            score: 0.7
+          - name: "Translation"
+            instructions:
+            notes:
+            score: 0.7
+          - name: "Planning"
+            instructions:
+            notes:
+            score: 0.7
+          - name: "Reasoning"
+            score: 0.7
+          - name: "Creativity"
+            score: 0.4
+          - name: "Data Analysis"
+            score: 0.7

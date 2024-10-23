@@ -1,3 +1,5 @@
+import yaml
+
 from .model import Model
 
 class Provider:
@@ -14,38 +16,53 @@ class Provider:
         return Provider.CONFIG_VSN
 
 
-    def __init__(self, identifier, config_data):
+    def __init__(self, identifier, config_data = None):
+        config_data = config_data or {}
         self.identifier = identifier
         self.vsn = config_data.get("vsn")
         self.name = config_data.get("name")
+        self.description = config_data.get("description")
         self.enabled = config_data.get("enabled")
-        self.details = config_data.get("details", {})
+        self.settings = config_data.get("settings", {})
         self.models: list[Model] = []
         for model in config_data.get("models", []):
             self.models.append(Model(self.identifier, model))
+
+    def is_configured(self):
+        if not self.name:
+            return False
+        if self.enabled is None:
+            return False
+        return True
 
     def to_yaml(self, options = None):
         options = options or {}
         models: list[dict] = []
         for model in self.models:
-            if options.get("disabled") or options.get("save"):
-                models.append(model.to_yaml(options=options))
-            elif model.enabled:
+            if options.get("disabled") or options.get("save") or (model.enabled and model.is_configured()):
                 models.append(model.to_yaml(options=options))
 
         o = {
             'name': self.name,
+            'description': self.description,
             'enabled': self.enabled,
-            'details': self.details,
-            'models': models,
             'vsn': self.config_vsn(),
+            'settings': self.settings,
+            'models': models,
         }
 
         if options.get("save"):
             pass
-        if options.get("disabled"):
+        elif options.get("disabled"):
             o.pop('vsn')
+            o.pop('settings')
         else:
             o.pop('vsn')
+            o.pop('settings')
             o.pop('enabled')
         return o
+
+    def show(self, options = None):
+        y = self.to_yaml(options=options)
+        return yaml.dump(y, sort_keys=False)
+
