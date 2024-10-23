@@ -1,4 +1,4 @@
 # smah/settings/user/__init__.py
 from .user import User
-
-__all__ = ['User']
+from .configurator import terminal_configurator
+__all__ = ['User', 'terminal_configurator']

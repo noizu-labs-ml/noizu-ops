@@ -2,7 +2,6 @@ import os
 import yaml
 import logging
 from typing import Optional
-from smah.console import std_console, err_console
 from smah.settings.user import User
 from smah.settings.system import System
 from smah.settings.inference import Inference
@@ -46,17 +45,6 @@ class Settings:
         if not self.inference or not self.inference.is_configured():
             return False
         return True
-
-    def configure(self, gui = False):
-        """
-        Interactive Setup
-        """
-        self.user = self.user or User()
-
-        if gui:
-            std_console.print("GUI Configure", gui)
-        else:
-            std_console.print("Terminal Configure", gui)
 
 
 

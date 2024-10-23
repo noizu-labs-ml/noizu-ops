@@ -25,7 +25,7 @@ Ensure the environment is set up with the necessary dependencies before executin
 
 import logging
 import smah.console
-from smah.settings.settings import Settings
+from smah.settings import Settings, configurator
 # from smah.runner import Runner
 import smah.logs
 import smah.args
@@ -49,12 +49,8 @@ def main():
         settings = Settings(config=args.config)
 
         # If settings are not configured, ask user to provide necessary information
-        show = args.verbose > 2
         if not settings.is_configured():
-            settings.configure(gui=args.gui)
-            show = True
-        else:
-            smah.console.std_console.print("OKAY")
+            settings = configurator(settings, gui=args.gui)
 
         smah.console.err_console.print("Exit")
         exit(0)

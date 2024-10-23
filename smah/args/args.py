@@ -61,7 +61,7 @@ def __add_gui_arguments(parser: argparse.ArgumentParser) -> None:
     Args:
         parser (ArgumentParser): The argument parser to which GUI-related arguments are added.
     """
-    parser.add_argument('--gui', action=argparse.BooleanOptionalAction, help='Run in GUI mode', default=True)
+    parser.add_argument('--gui', action=argparse.BooleanOptionalAction, help='Run in GUI mode', default=False)
 
 def __get_pipe():
     """
