@@ -1,12 +1,18 @@
+import textwrap
+
+import yaml
+
 
 class BaseInfo:
+    CONFIG_VSN = "0.0.1"
+
     @staticmethod
     def kind():
         return None
 
     @staticmethod
-    def yaml_version():
-        return "0.0.1"
+    def config_vsn():
+        return BaseInfo.CONFIG_VSN
 
 
     def __init__(self, config_data):
@@ -41,8 +47,25 @@ class BaseInfo:
         """
 
         return {
-            "vsn": self.vsn if self.vsn is not None else self.yaml_version(),
+            "vsn": self.config_vsn(),
             "kind": self.kind(),
             "source": self.source,
             "details": self.details,
         }
+
+    def show(self, options = None):
+        details = textwrap.indent(yaml.dump(self.details), " ") if self.details else None
+        template = textwrap.dedent(
+            """
+            - kind: {kind}
+            - source: {source}
+            - details:            
+            {details}
+            """
+        ).strip().format(
+            type=self.kind(),
+            source=self.source,
+            details=details
+        )
+        return template
+

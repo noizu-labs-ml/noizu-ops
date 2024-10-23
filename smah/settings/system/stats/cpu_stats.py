@@ -71,3 +71,20 @@ class CpuStats(BaseStats):
             "cpu_freq": self.last_cpu_freq,
             "cpu_percent": self.last_cpu_percent
         }
+
+    def show(self, options = None):
+        if self.stale():
+            self.update()
+        template = textwrap.dedent(
+            """
+            - time: {time}
+            - count: {count}
+            - freq: {freq}
+            - percent: {percent}
+            """
+        ).format(
+            time=self.time_stamp,
+            count=self.last_cpu_count,
+            freq=self.last_cpu_freq,
+            percent=self.last_cpu_percent
+        )

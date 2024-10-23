@@ -30,7 +30,7 @@ class DiskStats(BaseStats):
         try:
             if reading == "total":
                 return round(psutil.disk_usage('/').total / (1024.0 ** 3), 2)
-            elif reading == "available":
+            elif reading == "free":
                 return round(psutil.disk_usage('/').free / (1024.0 ** 3), 2)
             elif reading == "used":
                 return round(psutil.disk_usage('/').used / (1024.0 ** 3), 2)
@@ -46,7 +46,7 @@ class DiskStats(BaseStats):
         super().__init__()
 
         self.last_total = None
-        self.last_available = None
+        self.last_free = None
         self.last_used = None
         self.last_percent = None
 
@@ -57,7 +57,7 @@ class DiskStats(BaseStats):
 
         self.time_stamp = datetime.datetime.now()
         self.last_total = self.disk_info("total")
-        self.last_available = self.disk_info("available")
+        self.last_free = self.disk_info("free")
         self.last_used = self.disk_info("used")
         self.last_percent = self.disk_info("percent")
 
@@ -77,7 +77,27 @@ class DiskStats(BaseStats):
         return {
             "time": self.time_stamp,
             "total": self.last_total,
-            "available": self.last_available,
+            "free": self.last_free,
             "used": self.last_used,
             "percent": self.last_percent
         }
+
+    def show(self, options=None):
+        if self.stale():
+            self.update()
+        template = textwrap.dedent(
+            """
+            - time: {time}
+            - total: {total}
+            - free: {free}
+            - used: {used}
+            - percent: {percent}
+            """
+        ).strip().format(
+            time=self.time_stamp,
+            count=self.last_total,
+            free=self.last_free,
+            used=self.last_used,
+            percent=self.last_percent
+        )
+        return template

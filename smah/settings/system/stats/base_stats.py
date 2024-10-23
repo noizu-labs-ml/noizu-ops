@@ -7,7 +7,7 @@ class BaseStats:
         """
         self.time_stamp = None
 
-    def stale(self, threshold):
+    def stale(self, threshold = 100):
         """
         Checks if the disk statistics are stale based on the given threshold.
 

@@ -58,7 +58,7 @@ class WindowsInfo(BaseInfo):
         if fetch:
             details = self.system_info_details()
             if details is not None:
-                self.vsn = self.yaml_version()
+                self.vsn = self.config_vsn()
                 self.source, self.details = details
         elif config_data is not None:
             self.vsn = config_data["vsn"] if "vsn" in config_data else None

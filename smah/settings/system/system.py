@@ -1,35 +1,34 @@
-import os
-import platform
 import textwrap
+from typing import Optional
 from .stats import CpuStats, MemoryStats, DiskStats
 from .operating_system import OperatingSystem
-
-from rich.prompt import Prompt, Confirm
-from rich.console import Console
 
 class System:
     """
     Represents the system configuration and status.
 
     Attributes:
-        YAML_VERSION (str): The version of the YAML format.
-        errors (list): List of errors encountered during initialization.
+        CONFIG_VSN (str): The version of the YAML format config section.
         disk (DiskStats): Disk statistics.
         cpu (CpuStats): CPU statistics.
         memory (MemoryStats): Memory statistics.
-        type (str): OS type.
-        name (str): OS name.
-        version (str): OS version.
-        release (str): OS release.
-        info (object): OS-specific details.
+        operating_system (OperatingSystem): Operating System Details
         vsn (str): Version string.
-        configured (bool): Indicates if the system is configured.
     """
-
-    YAML_VERSION = "0.0.1"
+    CONFIG_VSN: str = "0.0.1"
 
     @staticmethod
-    def version_supported(version):
+    def config_vsn() -> str:
+        """
+        Returns the version of the configuration.
+
+        Returns:
+            str: The version of the configuration.
+        """
+        return System.CONFIG_VSN
+
+    @staticmethod
+    def version_supported(version) -> bool:
         """
         Checks if the given version is supported.
 
@@ -42,7 +41,7 @@ class System:
         if version is None:
             return False
         else:
-            return version <= System.YAML_VERSION
+            return version <= System.config_vsn()
 
     def __init__(self, config_data = None):
         """
@@ -52,11 +51,11 @@ class System:
             config_data (dict): Configuration data for the system.
         """
         config_data = config_data or {}
-        self.disk = DiskStats()
-        self.cpu = CpuStats()
-        self.memory = MemoryStats()
-        self.operating_system = OperatingSystem(config_data.get("os", {}))
-        self.vsn = config_data.get("vsn", self.YAML_VERSION)
+        self.disk: DiskStats = DiskStats()
+        self.cpu: CpuStats = CpuStats()
+        self.memory: MemoryStats = MemoryStats()
+        self.operating_system: OperatingSystem = OperatingSystem(config_data.get("operating_system"))
+        self.vsn: Optional[str] = config_data.get("vsn")
 
     def is_configured(self):
         """
@@ -68,6 +67,65 @@ class System:
         if not self.operating_system.is_configured():
             return False
         return True
+
+    def to_yaml(self, options = None):
+        """
+        Converts the system configuration to a YAML-compatible dictionary.
+
+        Returns:
+            dict: The system configuration in YAML format.
+        """
+        options = options or {}
+        if options.get("stats"):
+            return {
+                "vsn": self.config_vsn(),
+                "operating_system": self.operating_system.to_yaml(options=options) if self.operating_system else None,
+                "cpu": self.cpu.readings(),
+                "memory": self.cpu.readings(),
+                "disk": self.disk.readings()
+            }
+        else:
+            return {
+                "vsn": self.config_vsn(),
+                "operating_system": self.operating_system.to_yaml(options=options) if self.operating_system else None,
+            }
+
+    def show(self, options=None):
+        options = options or {}
+        o = self.operating_system.show(options=options) if self.operating_system else None
+
+        if options.get("stats"):
+            template = textwrap.dedent(
+                """
+                **Operating System:**
+                {operating_system}
+                
+                **Cpu:**
+                {cpu}
+                
+                **Memory:**
+                {memory}
+                
+                **Disk:**
+                {disk}
+                """
+            ).strip().format(
+                operating_system=o,
+                cpu=self.cpu.show(options=options) if self.cpu else None,
+                memory=self.memory.show(options=options) if self.memory else None,
+                disk=self.disk.show(options=options) if self.disk else None
+            )
+        else:
+            template = textwrap.dedent(
+                """
+                **Operating System:**
+                {operating_system}
+                """
+            ).strip().format(
+                operating_system=o
+            )
+        return template
+
     #
     # def os_details(self):
     #     """

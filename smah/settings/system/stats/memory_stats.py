@@ -29,7 +29,7 @@ class MemoryStats(BaseStats):
         try:
             if reading == "total":
                 return round(psutil.virtual_memory().total / (1024.0 ** 3), 2)
-            elif reading == "available":
+            elif reading == "free":
                 return round(psutil.virtual_memory().available / (1024.0 ** 3), 2)
             elif reading == "used":
                 return round(psutil.virtual_memory().used / (1024.0 ** 3), 2)
@@ -55,7 +55,7 @@ class MemoryStats(BaseStats):
 
         self.time_stamp = datetime.datetime.now()
         self.last_total = self.memory_info("total")
-        self.last_available = self.memory_info("available")
+        self.last_free = self.memory_info("free")
         self.last_used = self.memory_info("used")
         self.last_percent = self.memory_info("percent")
 
@@ -75,7 +75,27 @@ class MemoryStats(BaseStats):
         return {
             "time": self.time_stamp,
             "total": self.last_total,
-            "available": self.last_available,
+            "free": self.last_free,
             "used": self.last_used,
             "percent": self.last_percent
         }
+
+    def show(self, options=None):
+        if self.stale():
+            self.update()
+        template = textwrap.dedent(
+            """
+            - time: {time}
+            - total: {total}
+            - free: {free}
+            - used: {used}
+            - percent: {percent}
+            """
+        ).strip().format(
+            time=self.time_stamp,
+            count=self.last_total,
+            free=self.last_free,
+            used=self.last_used,
+            percent=self.last_percent
+        )
+        return template
