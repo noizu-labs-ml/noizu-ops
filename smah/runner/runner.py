@@ -14,6 +14,8 @@ from smah.settings.inference.provider.model import Model
 
 
 class Runner:
+    MAX_PIPE_LENGTH = 2048
+    PIPE_HEAD_LENGTH = 1024
 
     @staticmethod
     def message(role="user", content="..."):
@@ -368,6 +370,69 @@ class Runner:
             logging.error(f"Missing keys: {missing_keys}")
             return None
 
+    def pipe_plan(self, query: str, pipe: str) -> Optional[Tuple[bool, dict]]:
+        self.log_mode("Pipe Plan", print=self.args.verbose >= 1)
+        planner = self.inference_model("pipe")
+
+        if len(pipe) > self.MAX_PIPE_LENGTH:
+            pipe_head = pipe[:self.PIPE_HEAD_LENGTH]
+            pipe_tail = pipe[self.PIPE_HEAD_LENGTH:]
+            r = textwrap.dedent(
+                """
+                # Pipe Request
+                {query}
+                ----
+                Pipe:
+                {pipe_head}
+                .
+                . (anything may be here, it may not be the same content as in the head or tail of stream)
+                .
+                {pipe_tail}
+                """
+            ).format(query=query, pipe_head=pipe_head, pipe_tail=pipe_tail)
+        else:
+            r = textwrap.dedent(
+                """
+                # Pipe Request
+                {query}
+                ----
+                Pipe:
+                {pipe}
+                """
+            ).format(query=query, pipe=pipe)
+
+
+        q = textwrap.dedent(
+            """
+            # System Prompt
+            Determine the best model and settings to reply the following pipe processing request.
+            Note as this is a pipe request unless user is requesting detailed analysis of the data you should not format output but return raw pipe output that can be fed into other shell commands.
+            ------
+            #{query}
+            """).format(query=r)
+
+        thread = [
+            self.noizu_prompt_lingua_message(),
+            self.ack(),
+            self.model_picker_prompt(),
+            self.ack(),
+            self.system_settings_prompt(),
+            self.ack(),
+            self.message(content=q),
+        ]
+        response = self.run(model=planner, thread=thread, response_format=self.planner_response_format())
+
+        response_content = json.loads(response.choices[0].message.content)
+        required_keys = ["model", "reason", "include_settings", "include_settings_reason", "format_output",
+                         "format_output_reason", "instructions"]
+        if all(key in response_content for key in required_keys):
+            return True, response_content
+        else:
+            missing_keys = [key for key in required_keys if key not in response_content]
+            logging.error(f"Missing keys: {missing_keys}")
+            return None
+
+
     def query(self, query: str) -> None:
         self.log_mode("Query", print=self.args.verbose >= 1)
         plan = self.query_plan(query)
@@ -449,7 +514,88 @@ class Runner:
 
 
     def pipe(self, query: str, pipe: str) -> None:
-        self.log_mode("Pipe", print=self.args.verbose >= 1)
+        plan = self.pipe_plan(query,pipe)
+        if plan:
+            _, p = plan
+            log = textwrap.dedent(
+                """
+                # Query Plan
+                model: {model}
+                reason: {reason}
+                include_settings: {include_settings}
+                include_settings_reason: {include_settings_reason}
+                format_output: {format_output}
+                format_output_reason: {format_output_reason}
+                instructions: {instructions}
+                """).format(**p)
+            log = Panel(log, title="Query Plan", style="bold yellow", box=rich.box.SQUARE)
+            err_console.print(log)
+
+            prompt = textwrap.dedent(
+                """
+                # PROMPT
+                You are AI assisted Pipe input processor. Users feed in pipe data and you return pipe output.
+                Do not output anything other than expected pipe output. Do not comment on, reflect on etc. your response.
+                Your response may be passed onto other linux commands and must be properly formatted.                
+                
+                ## Example Valid Response: Possibly requested to find specific numbers in pipe                
+                   12
+                   435
+                   15134
+                   13420414
+                
+                ## Invalid Response: Not the unnecessary intro and outro sections                
+                   Sure I can help you with that.
+                
+                   12
+                   435
+                   15134
+                   13420414
+                
+                   I hope that helps!
+                
+                ----
+                When you are ready, reply ack.            
+                """)
+
+            instructions = textwrap.dedent("""
+            # PROCESSING INSTRUCTIONS
+            Your operator
+            has requested you apply the following logic to the following pipe input content.
+            ----
+            {query}
+            ----
+            Reply ack and I will send the first chunk of the pipe input. Once sent unless asked otherwise assume user desires a tab deliminated output stream to be passed to other terminal commands.
+            """).format(
+                query=textwrap.dedent(query),
+                instructions=p["instructions"]
+            )
+
+            pipe_data = textwrap.dedent(
+                """
+                >>> From Pipe
+                ----
+                {pipe}            
+                """).format(pipe=pipe)
+
+            thread = [
+                self.noizu_prompt_lingua_message(),
+                self.ack(),
+                self.system_settings_prompt(include_system=p["include_settings"]),
+                self.ack(),
+                self.message(content=prompt),
+                self.ack(),
+                self.message(content=instructions),
+                self.ack(),
+                self.message(content=pipe_data),
+            ]
+            model = self.settings.inference.models[p["model"]]
+            response = self.run(
+                model=model,
+                thread=thread
+            )
+            r = response.choices[0].message.content
+            std_console.print(Markdown(r) if p["format_output"] else r)
 
     def interactive(self, query: Optional[str] = None, pipe: Optional[str] = None) -> None:
         self.log_mode("Interactive", print=self.args.verbose >= 1)
