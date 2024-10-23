@@ -4,16 +4,18 @@ import rich.box
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
-from .system import System
-from smah.console import std_console, err_console, prompt_choice, prompt_string
 
-def terminal_configurator(system: Optional[System]) -> System:
-    std_console.print(Markdown("## Configure System"))
+from .operating_system import OperatingSystem, operating_system_terminal_configurator
+from .system import System
+
+from smah.console import std_console, err_console, prompt_choice, prompt_string
+def system_terminal_configurator(system: Optional[System]) -> System:
+    std_console.print(Markdown("## Configure System Settings"))
     system = system or System()
 
     if system.is_configured():
         show(system)
-        if not Confirm.ask("edit?"):
+        if not Confirm.ask("edit?", default=False):
             return system
 
     while True:
@@ -21,10 +23,11 @@ def terminal_configurator(system: Optional[System]) -> System:
 
         std_console.print("\n")
         show(system, label = "Confirm System Settings", border_style="green bold")
-        if Confirm.ask("confirm?"):
+        if Confirm.ask("confirm?", default=True):
             return system
 
 def prompt(system: System) -> System:
+    system.operating_system = operating_system_terminal_configurator(system.operating_system)
     return system
 
 def show(system: System, label = "System Settings", border_style="white bold"):

@@ -1,3 +1,5 @@
+from typing import Optional, Tuple
+
 from .base_info import BaseInfo
 import subprocess
 
@@ -24,7 +26,11 @@ class LinuxInfo(BaseInfo):
         return "Linux"
 
     @staticmethod
-    def os_release_details():
+    def info() -> Optional[Tuple]:
+        return LinuxInfo.os_release_details() or LinuxInfo.uname_details() or LinuxInfo.proc_details()
+
+    @staticmethod
+    def os_release_details() -> Optional[Tuple]:
         """
         Retrieves OS release details from /etc/os-release.
 
@@ -43,12 +49,12 @@ class LinuxInfo(BaseInfo):
                     key = parts[0].strip().lower().replace('_', '-')
                     value = parts[1].strip().strip('"')
                     distro_info[key] = value
-            return "os_release", distro_info
+            return "os-release", distro_info
         except (FileNotFoundError, PermissionError):
             return None
 
     @staticmethod
-    def uname_details():
+    def uname_details() -> Optional[Tuple]:
         """
         Retrieves OS details using the uname command.
 
@@ -64,7 +70,7 @@ class LinuxInfo(BaseInfo):
             return None
 
     @staticmethod
-    def proc_details():
+    def proc_details() -> Optional[Tuple]:
         """
         Retrieves OS details from /proc/version.
 
@@ -80,7 +86,7 @@ class LinuxInfo(BaseInfo):
         except (FileNotFoundError, PermissionError, IndexError):
             return None
 
-    def __init__(self, config_data, fetch=False):
+    def __init__(self, config_data=None, fetch=False):
         """
         Initializes the LinuxDetails instance with the given configuration data.
 
@@ -88,19 +94,4 @@ class LinuxInfo(BaseInfo):
             config_data (dict): Configuration data for the OS details.
             fetch (bool): Whether to fetch the details.
         """
-        super().__init__(config_data)
-
-        if fetch:
-            details = self.os_release_details() or self.uname_details() or self.proc_details()
-            if details is not None:
-                self.vsn = self.config_vsn()
-                self.source, self.details = details
-        elif config_data is not None:
-            self.vsn = config_data["vsn"] if "vsn" in config_data else None
-            self.source = config_data["source"] if "source" in config_data else None
-            self.details = config_data["details"] if "details" in config_data else None
-
-        if not self.errors:
-            self.errors = None
-
-        self.configured = self.is_configured()
+        super().__init__("Linux", config_data=config_data, fetch=fetch)

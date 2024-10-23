@@ -1,8 +1,8 @@
+from .inference import inference_terminal_configurator
 from .settings import Settings
-from .user import User
+from .user import User, user_terminal_configurator
+from .system import System, system_terminal_configurator
 from smah.console import std_console, err_console
-import smah.settings.user.configurator
-import smah.settings.system.configurator
 from rich.markdown import Markdown
 
 def configurator(settings: Settings, gui=False) -> Settings:
@@ -17,8 +17,9 @@ def configurator(settings: Settings, gui=False) -> Settings:
 def terminal_configurator(settings: Settings) -> Settings:
     std_console.print(Markdown("# Configure"))
 
-    settings.user = smah.settings.user.configurator.terminal_configurator(settings.user)
-    settings.system = smah.settings.system.configurator.terminal_configurator(settings.system)
+    settings.user = user_terminal_configurator(settings.user)
+    settings.system = system_terminal_configurator(settings.system)
+    settings.inference = inference_terminal_configurator(settings.inference)
 
     settings.save()
     return settings

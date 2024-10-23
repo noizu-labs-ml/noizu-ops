@@ -1,3 +1,7 @@
+from typing import Optional, Tuple
+
+from click import Tuple
+
 from .base_info import BaseInfo
 import subprocess
 
@@ -24,7 +28,11 @@ class WindowsInfo(BaseInfo):
         return "Windows"
 
     @staticmethod
-    def system_info_details():
+    def info() -> Optional[Tuple]:
+        return WindowsInfo.system_info_details()
+
+    @staticmethod
+    def system_info_details() -> Optional[Tuple]:
         """
         Retrieves OS details using the systeminfo command.
 
@@ -41,11 +49,11 @@ class WindowsInfo(BaseInfo):
                     key = key.strip().replace(' ', '-').lower()
                     value = value.strip()
                     version_dict[key] = value
-            return "systeminfo", version_dict
+            return "system info", version_dict
         except (subprocess.CalledProcessError, FileNotFoundError):
             return None
 
-    def __init__(self, config_data, fetch=False):
+    def __init__(self, config_data = None, fetch=False):
         """
         Initializes the WindowsDetails instance with the given configuration data.
 
@@ -53,19 +61,4 @@ class WindowsInfo(BaseInfo):
             config_data (dict): Configuration data for the OS details.
             fetch (bool): Whether to fetch the details.
         """
-        super().__init__(config_data)
-
-        if fetch:
-            details = self.system_info_details()
-            if details is not None:
-                self.vsn = self.config_vsn()
-                self.source, self.details = details
-        elif config_data is not None:
-            self.vsn = config_data["vsn"] if "vsn" in config_data else None
-            self.source = config_data["source"] if "source" in config_data else None
-            self.details = config_data["details"] if "details" in config_data else None
-
-        if not self.errors:
-            self.errors = None
-
-        self.configured = self.is_configured()
+        super().__init__("Windows", config_data=config_data, fetch=fetch)

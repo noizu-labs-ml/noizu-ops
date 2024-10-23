@@ -49,7 +49,7 @@ def main():
         settings = Settings(config=args.config)
 
         # If settings are not configured, ask user to provide necessary information
-        if not settings.is_configured():
+        if not settings.is_configured() or args.configure:
             settings = configurator(settings, gui=args.gui)
 
         smah.console.err_console.print("Exit")

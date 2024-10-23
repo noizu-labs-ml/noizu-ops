@@ -51,8 +51,8 @@ class Settings:
             return False
         if not self.system or not self.system.is_configured():
             return False
-        #if not self.inference or not self.inference.is_configured():
-        #    return False
+        if not self.inference or not self.inference.is_configured():
+            return False
         return True
 
     def load(self) -> None:

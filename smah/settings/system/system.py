@@ -126,35 +126,6 @@ class System:
             )
         return template
 
-    #
-    # def os_details(self):
-    #     """
-    #     Retrieves OS details such as type, release, version, and name.
-    #
-    #     Returns:
-    #         dict: A dictionary containing OS details.
-    #     """
-    #
-    #     type = None
-    #     release = None
-    #     version = None
-    #     name = None
-    #     try:
-    #         type = platform.system()
-    #         release = platform.release()
-    #         version = platform.version()
-    #         name = os.name
-    #     except Exception as e:
-    #         print("error")
-    #         pass
-    #
-    #     return {
-    #         "type": type,
-    #         "release": release,
-    #         "version": version,
-    #         "name": name,
-    #     }
-    #
     # def terminal_configure(self, console):
     #     """
     #     Configures the system details interactively via the terminal.

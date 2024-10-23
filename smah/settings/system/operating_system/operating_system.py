@@ -48,12 +48,14 @@ class OperatingSystem:
         kind = config_data.get("kind")
         if kind == "Linux":
             return LinuxInfo(config_data)
-        elif kind == "Darwin":
+        elif kind == "Darwin (macOs)":
             return DarwinInfo(config_data)
         elif kind == "Windows":
             return WindowsInfo(config_data)
         elif kind == "BSD":
             return BSDInfo(config_data)
+        elif kind:
+            return BaseInfo(kind, config_data)
         else:
             return None
 
@@ -63,7 +65,7 @@ class OperatingSystem:
         self.name: Optional[str] = config_data.get("name")
         self.version: Optional[str] = config_data.get("version")
         self.release: Optional[str] = config_data.get("release")
-        self.info: Optional[BaseInfo] = self.load_info(config_data.get("info", {}))
+        self.info: Optional[BaseInfo] = self.load_info(config_data.get("info"))
         self.vsn: Optional[str] = config_data.get("vsn")
 
     def is_configured(self):
@@ -81,8 +83,8 @@ class OperatingSystem:
             return False
         if not self.release:
             return False
-        # if not self.info:
-        #     return False
+        if not self.info or not self.info.is_configured():
+            return False
         if not self.vsn:
             return False
         return True

@@ -8,13 +8,13 @@ from .user import User
 from smah.console import std_console, err_console, prompt_choice, prompt_string
 import textwrap
 
-def terminal_configurator(user: Optional[User]) -> User:
+def user_terminal_configurator(user: Optional[User]) -> User:
     std_console.print(Markdown("## Configure User"))
     user = user or User()
 
     if user.is_configured():
         show(user)
-        if not Confirm.ask("edit?"):
+        if not Confirm.ask("edit?", default=False):
             return user
         else:
             std_console.print("\n")
@@ -24,7 +24,7 @@ def terminal_configurator(user: Optional[User]) -> User:
 
         std_console.print("\n")
         show(user, label = "Confirm User Settings", border_style="green bold")
-        if Confirm.ask("confirm?"):
+        if Confirm.ask("confirm?", default=True):
             return user
 
 def prompt(user: User) -> User:

@@ -1,3 +1,5 @@
+from typing import Optional, Tuple
+
 from .base_info import BaseInfo
 import subprocess
 
@@ -22,10 +24,14 @@ class DarwinInfo(BaseInfo):
         Returns:
             str: The kind of the OS details.
         """
-        return "Darwin"
+        return "Darwin (macOs)"
 
     @staticmethod
-    def darwin_details():
+    def info() -> Optional[Tuple]:
+        return DarwinInfo.darwin_details()
+
+    @staticmethod
+    def darwin_details() -> Optional[Tuple]:
         """
         Retrieves OS details using the sw_vers command.
 
@@ -43,11 +49,11 @@ class DarwinInfo(BaseInfo):
                     key = key.strip().replace(' ', '-').lower()
                     value = value.strip()
                     version_dict[key] = value
-            return "sw_vers", version_dict
+            return "sw-vers", version_dict
         except (subprocess.CalledProcessError, FileNotFoundError):
             return None
 
-    def __init__(self, config_data, fetch=False):
+    def __init__(self, config_data = None, fetch=False):
         """
         Initializes the DarwinDetails instance with the given configuration data.
 
@@ -55,19 +61,4 @@ class DarwinInfo(BaseInfo):
             config_data (dict): Configuration data for the OS details.
             fetch (bool): Whether to fetch the details.
         """
-        super().__init__(config_data)
-
-        if fetch:
-            details = self.darwin_details()
-            if details is not None:
-                self.vsn = self.config_vsn()
-                self.source, self.details = details
-        elif config_data is not None:
-            self.vsn = config_data["vsn"] if "vsn" in config_data else None
-            self.source = config_data["source"] if "source" in config_data else None
-            self.details = config_data["details"] if "details" in config_data else None
-
-        if not self.errors:
-            self.errors = None
-
-        self.configured = self.is_configured()
+        super().__init__("Darwin (macOs)", config_data=config_data, fetch=fetch)
