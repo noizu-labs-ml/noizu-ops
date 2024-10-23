@@ -84,13 +84,41 @@ class Model:
 
     def to_yaml(self, options=None):
         options = options or {}
+        if options.get("prompt"):
+            return self.to_prompt_yaml(options=options)
+        else:
+            return self.to_standard_yaml(options=options)
+
+
+    def to_prompt_yaml(self, options=None):
+        options = options or {}
+        min_score = options.get('min_score', 0.4)
+        use_cases = [x.to_yaml(options=options) for x in self.use_cases if x.score >= min_score]
+        o = {
+            'id': f"{self.provider}.{self.name}",
+            'description': self.description,
+            'training_cutoff': self.training_cutoff,
+            'context': self.context,
+            'strengths': self.strengths,
+            'weaknesses': self.weaknesses,
+            'modalities': self.modalities,
+            'attributes': self.attributes,
+            'cost': self.cost,
+            'use_cases': use_cases,
+        }
+        return o
+
+    def to_standard_yaml(self, options=None):
+        options = options or {}
         if options.get("save"):
             use_cases = [x.to_yaml(options=options) for x in self.use_cases]
         else:
-            use_cases = [x.to_yaml(options=options) for x in self.use_cases if x.score >= 0.4]
+            min_score = options.get('min_score', 0.4)
+            use_cases = [x.to_yaml(options=options) for x in self.use_cases if x.score >= min_score]
 
         o = {
             'name': self.name,
+            'model': self.model,
             'description': self.description,
             'enabled': self.enabled,
             'training_cutoff': self.training_cutoff,

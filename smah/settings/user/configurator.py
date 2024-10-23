@@ -29,9 +29,9 @@ def user_terminal_configurator(user: Optional[User]) -> User:
 
 def prompt(user: User) -> User:
     user.name = prompt_string("Name", user.name, label="What is your name?")
-    user.experience = prompt_choice(
+    user.system_admin_experience = prompt_choice(
         "Experience Level",
-        user.experience,
+        user.system_admin_experience,
         label = "What is your experience level?",
         options = ["Novice", "Beginner", "Intermediate", "Advanced", "Expert"]
     )

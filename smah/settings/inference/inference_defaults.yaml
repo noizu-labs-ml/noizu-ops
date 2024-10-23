@@ -1,5 +1,9 @@
 vsn: "0.0.1"
 instructions:
+model_picker:
+  default:
+    - "openai.gpt-4o-mini"
+    - "openai.gpt-4o"
 providers:
   openai:
     name: OpenAI
@@ -11,7 +15,7 @@ providers:
       - name: "gpt-4-turbo"
         model: "gpt-4-turbo"
         description: "GPT-4 Turbo"
-        enabled: true
+        enabled: false
         training_cutoff: "2023-12-01"
         license: "OpenAI License"
         model_type: "LLM"
@@ -203,7 +207,7 @@ providers:
           text:
             in: true
             out: true
-        options:
+        settings:
           max_completion_tokens: true
         attributes:
           speed: 3
@@ -258,7 +262,7 @@ providers:
           text:
             in: true
             out: true
-        options:
+        settings:
           max_completion_tokens: true
         attributes:
           speed: 5

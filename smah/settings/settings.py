@@ -1,7 +1,12 @@
 import os
+import textwrap
+
 import yaml
 import logging
 from typing import Optional
+
+from rich.markdown import Markdown
+from smah.console import err_console
 from smah.settings.user import User
 from smah.settings.system import System
 from smah.settings.inference import Inference
@@ -103,3 +108,39 @@ class Settings:
                 file.write(yaml_content)
         except Exception as e:
             raise RuntimeError(f"Failed to save profile: {str(e)}")
+
+    def log(self,
+            level: int = logging.DEBUG,
+            format: bool = True,
+            print: bool = False
+            ) -> None:
+        """
+        Log settings and optionally print to stdout.
+
+        Args:
+            format (bool): Flag to enable/disable formatting of settings when printing.
+            print (bool): Flag to enable/disable printing of settings.
+        """
+        try:
+            settings_yaml = yaml.dump(self.to_yaml({"stats": True, "save": True}), sort_keys=False)
+            logging.log(level, "Settings YAML: %s", settings_yaml)
+
+            if print:
+                o = textwrap.dedent(
+                    """
+                    
+                    
+                    Settings
+                    ========
+                    ```yaml
+                    {settings_yaml}
+                    ```
+                    """
+                ).strip().format(settings_yaml=settings_yaml)
+                if format:
+                    o = Markdown(o)
+                    err_console.print(o)
+                else:
+                    err_console.print(o)
+        except Exception as e:
+            logging.error("Exception raised while logging settings: %s", str(e))

@@ -20,7 +20,7 @@ class User:
     def __init__(self, config_data = None):
         config_data = config_data or {}
         self.name: Optional[str] = config_data.get("name")
-        self.experience: Optional[str] = config_data.get("experience")
+        self.system_admin_experience: Optional[str] = config_data.get("system_admin_experience")
         self.role: Optional[str] = config_data.get("role")
         self.about: Optional[str] = config_data.get("about")
         self.vsn: Optional[str] = config_data.get("vsn")
@@ -28,7 +28,7 @@ class User:
     def is_configured(self) -> bool:
         if not self.name:
             return False
-        if not self.experience:
+        if not self.system_admin_experience:
             return False
         if not self.role:
             return False
@@ -40,7 +40,7 @@ class User:
         return {
             "vsn": self.config_vsn(),
             "name": self.name,
-            "experience": self.experience,
+            "system_admin_experience": self.system_admin_experience,
             "role": self.role,
             "about": self.about,
         }
@@ -52,14 +52,14 @@ class User:
             """
             - name: {name}
             - role: {role}
-            - experience: {experience}
+            - system_admin_experience: {experience}
             - about:
             {about}
             """
         ).strip().format(
             name=self.name,
             role=self.role,
-            experience=self.experience,
+            experience=self.system_admin_experience,
             about=about,
         )
         return template

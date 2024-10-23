@@ -24,7 +24,10 @@ Ensure the environment is set up with the necessary dependencies before executin
 """
 
 import logging
+from typing import Optional
+
 import smah.console
+from smah.runner import Runner
 from smah.settings import Settings, configurator
 # from smah.runner import Runner
 import smah.logs
@@ -51,67 +54,49 @@ def main():
         # If settings are not configured, ask user to provide necessary information
         if not settings.is_configured() or args.configure:
             settings = configurator(settings, gui=args.gui)
+            settings.log(print=True, format=True)
+        else:
+            settings.log(print=(args.verbose >= 3), format=True)
+        runner = Runner(args, settings)
 
-        smah.console.err_console.print("Exit")
-        exit(0)
-        #
-        # settings.log(print=show, format=args.gui)
-        # runner = Runner(args, settings)
-        #
-        # if args.query:
-        #     __process_query(runner, args.query, pipe)
-        # elif args.instructions:
-        #     __process_instructions(runner, args.instructions, pipe)
-        # else:
-        #     runner.interactive(pipe=pipe)
+        query = __with_query(args)
+
+        if args.interactive or not query:
+            runner.interactive(query=query, pipe=pipe)
+        else:
+            if pipe:
+                runner.pipe(query=query, pipe=pipe)
+            else:
+                runner.query(query=query)
     except Exception as e:
         logging.error("An unexpected error occurred in main: %s", str(e), exc_info=True)
-#
-# def __process_query(runner: Runner, query: str, pipe: str) -> None:
-#     """
-#     Process a query using the provided runner.
-#
-#     Args:
-#         runner (Runner): The runner instance to execute the query.
-#         query (str): The query string to be processed.
-#         pipe (str or None): Optional content read from standard input.
-#
-#     Raises:
-#         Exception: If an error occurs during query processing.
-#     """
-#     try:
-#         if pipe:
-#             runner.pipe(query=query, pipe=pipe)
-#         else:
-#             runner.query(query=query)
-#     except Exception as e:
-#         logging.error("Error processing query: %s", str(e))
-#
-# def __process_instructions(runner: Runner, instructions_file: str, pipe: str) -> None:
-#     """
-#     Process instructions from a file using the provided runner.
-#
-#     Args:
-#         runner (Runner): The runner instance to execute the instructions.
-#         instructions_file (str): The path to the instructions file.
-#         pipe (str or None): Optional content read from standard input.
-#
-#     Raises:
-#         FileNotFoundError: If the instructions file is not found.
-#         IOError: If an I/O error occurs while reading the file.
-#     """
-#     try:
-#         with open(instructions_file, 'r') as file:
-#             instructions = file.read()
-#             if instructions:
-#                 if pipe:
-#                     runner.pipe(query=instructions, pipe=pipe)
-#                 else:
-#                     runner.query(query=instructions)
-#     except FileNotFoundError:
-#         logging.error("Instruction file not found: %s", instructions_file)
-#     except IOError as e:
-#         logging.error("IO error reading file '%s': %s", instructions_file, str(e))
+
+
+def __with_query(args) -> Optional[str]:
+    """
+    Extracts the query from the command-line arguments.
+
+    Args:
+        args (argparse.Namespace): The parsed command-line arguments.
+
+    Returns:
+        Optional[str]: The query string if provided, None otherwise.
+    """
+    if args.query:
+        return args.query
+
+    if args.instructions:
+        try:
+            with open(args.instructions, 'r') as file:
+                return file.read()
+        except FileNotFoundError as e:
+            logging.error("Instruction file not found: %s", instructions_file)
+            raise e
+        except IOError as e:
+            logging.error("IO error reading file '%s': %s", instructions_file, str(e))
+            raise e
+
+    return None
 
 if __name__ == "__main__":
     main()

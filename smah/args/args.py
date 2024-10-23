@@ -40,6 +40,7 @@ def __add_general_arguments(parser: argparse.ArgumentParser) -> None:
     """
     parser.add_argument('-q', '--query', type=str, help='The Query to process')
     parser.add_argument('-i', '--instructions', type=str, help='The Instruction File to process')
+    parser.add_argument('--interactive', action=argparse.BooleanOptionalAction, help='Run in interactive mode', default=False)
     parser.add_argument('-c', '--config', type=str, help='Path to alternative config file')
     parser.add_argument('--configure', action=argparse.BooleanOptionalAction, help='Enter Config Setup', default=False)
     parser.add_argument('-v', '--verbose', action='count', default=0, help="Set Verbosity Level, such as -vv")
@@ -51,6 +52,14 @@ def __add_ai_arguments(parser: argparse.ArgumentParser) -> None:
     Args:
         parser (ArgumentParser): The argument parser to which AI-related arguments are added.
     """
+    parser.add_argument('--model', type=str, help='Default Model')
+    parser.add_argument('--model-picker', type=str, help='Picker Model')
+    parser.add_argument('--model-query', type=str, help='Query Model')
+    parser.add_argument('--model-pipe', type=str, help='Pipe Processing Model')
+    parser.add_argument('--model-interactive', type=str, help='Interactive Processing Model')
+    parser.add_argument('--model-review', type=str, help='Output Reviewer Model')
+    parser.add_argument('--model-edit', type=str, help='Output Editor Model')
+
     parser.add_argument('--openai-api-tier', type=int, help='OpenAI Tier')
     parser.add_argument('--openai-api-key', type=str, help='OpenAI Api Key')
     parser.add_argument('--openai-api-org', type=str, help='OpenAI Api Org')

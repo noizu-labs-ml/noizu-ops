@@ -1,3 +1,5 @@
+import os
+
 import yaml
 
 from .model import Model
@@ -23,7 +25,7 @@ class Provider:
         self.name = config_data.get("name")
         self.description = config_data.get("description")
         self.enabled = config_data.get("enabled")
-        self.settings = config_data.get("settings", {})
+        self.settings = config_data.get("settings") or {}
         self.models: list[Model] = []
         for model in config_data.get("models", []):
             self.models.append(Model(self.identifier, model))
@@ -33,7 +35,23 @@ class Provider:
             return False
         if self.enabled is None:
             return False
+        for model in self.models:
+            if model.enabled and not(model.is_configured()):
+                return False
         return True
+
+    def api_key(self, args):
+        if self.identifier == "openai":
+            k = args.openai_api_key or self.settings.get("api_key")
+            if k:
+                if k.startswith("$"):
+                    k = k.lstrip("$").lstrip("{").rstrip("}")
+                    return os.environ.get(k)
+                else:
+                    return k
+            else:
+                return os.environ.get("SMAH_OPENAI_API_KEY") or os.environ.get("OPENAI_API_KEY")
+        return None
 
     def to_yaml(self, options = None):
         options = options or {}
