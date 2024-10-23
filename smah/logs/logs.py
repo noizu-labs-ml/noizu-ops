@@ -42,7 +42,7 @@ def configure(
 
     logging.basicConfig(
         level=log_level,
-        format='%(asctime)s %(pathname)s:%(lineno)d [%(levelname)s] %(message)s',
+        format='%(asctime)s [%(levelname)s] %(pathname)s:%(lineno)d %(message)s',
         handlers=[
             RotatingFileHandler(
                 log_file,

@@ -40,7 +40,7 @@ def __add_general_arguments(parser: argparse.ArgumentParser) -> None:
     """
     parser.add_argument('-q', '--query', type=str, help='The Query to process')
     parser.add_argument('-i', '--instructions', type=str, help='The Instruction File to process')
-    parser.add_argument('--profile', type=str, help='Path to alternative config file')
+    parser.add_argument('-c', '--config', type=str, help='Path to alternative config file')
     parser.add_argument('-v', '--verbose', action='count', default=0, help="Set Verbosity Level, such as -vv")
 
 def __add_ai_arguments(parser: argparse.ArgumentParser) -> None:

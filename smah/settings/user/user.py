@@ -1,6 +1,6 @@
 import textwrap
 from rich.prompt import Prompt, Confirm
-
+from smah.console import std_console
 class User:
     YAML_VERSION = "0.0.1"
 
@@ -11,47 +11,35 @@ class User:
         else:
             return vsn <= User.YAML_VERSION
 
-    def __init__(self, config_data):
-        self.errors = []
-        self.configured = None
-
-        if config_data is None:
-            self.errors = ["User data is missing"]
-            self.name = None
-            self.experience_level = None
-            self.role = None
-            self.about = None
-            self.vsn = None
-        else:
-            self.name = config_data["name"] if "name" in config_data else None
-            self.experience_level = config_data["experience_level"] if "experience_level" in config_data else None
-            self.role = config_data["role"] if "role" in config_data else None
-            self.about = config_data["about"] if "about" in config_data else None
-            self.vsn = config_data["vsn"] if "vsn" in config_data else None
-
-        if not self.errors:
-            self.errors = None
-
-        self.configured = self.is_configured()
+    def __init__(self, config_data = None):
+        config_data = config_data or {}
+        self.name = config_data.get("name")
+        self.experience_level = config_data.get("experience_level")
+        self.role = config_data.get("role")
+        self.about = config_data.get("about")
+        self.vsn = config_data.get("vsn")
 
     def is_configured(self):
-        if (self.configured is None):
-            return not(self.name is None or self.experience_level is None)
-        else:
-            return self.configured
+        if not self.name:
+            return False
+        if not self.experience_level:
+            return False
+        if not self.role:
+            return False
+        if not self.about:
+            return False
+        return True
 
-    def terminal_configure(self, console):
-        console.print("Lets get to know you", style="bold green")
-        self.name = self.prompt_name(console)
-        self.experience_level = self.prompt_experience_level(console)
-        self.role = self.prompt_role(console)
-        self.about = self.prompt_about(console)
-        self.configured = None
-        self.configured = self.is_configured()
+    def terminal_configure(self):
+        std_console.print("Lets get to know you", style="bold green")
+        self.name = self.prompt_name()
+        self.experience_level = self.prompt_experience_level()
+        self.role = self.prompt_role()
+        self.about = self.prompt_about()
 
-    def to_yaml(self, options = {}):
+    def to_yaml(self):
         return {
-            "vsn": self.vsn if self.vsn is not None else User.YAML_VERSION,
+            "vsn": User.YAML_VERSION,
             "name": self.name,
             "experience_level": self.experience_level,
             "role": self.role,
@@ -63,13 +51,13 @@ class User:
         if self.name is None:
             return Prompt.ask(message)
         else:
-            console.print(f"Name: {self.name}")
+            std_console.print(f"Name: {self.name}")
             if Confirm.ask("correct?", default=True):
                 return self.name
             else:
                 return Prompt.ask(message, default = self.name)
 
-    def prompt_experience_level(self, console):
+    def prompt_experience_level(self):
         message = textwrap.dedent(
             """
             [bold green]What is your experience level?[/bold green]
@@ -99,7 +87,7 @@ class User:
             level =  Prompt.ask(message, choices=["0","1", "2", "3", "4"])
             return levels[level]
         else:
-            console.print(f"Experience Level: {self.experience_level}")
+            std_console.print(f"Experience Level: {self.experience_level}")
             if Confirm.ask("correct?", default=True):
                 return self.experience_level
             else:
@@ -107,23 +95,23 @@ class User:
                 level = Prompt.ask(message, choices=["1", "2", "3", "4"], default = default_level)
                 return levels[level]
 
-    def prompt_role(self, console):
+    def prompt_role(self):
         message = "[bold green]What is your role?[/bold green] (Developer, Tester, User, Student, Admin, ...)"
         if self.role is None:
             return Prompt.ask(message)
         else:
-            console.print(f"Role: {self.role}")
+            std_console.print(f"Role: {self.role}")
             if Confirm.ask("correct?", default=True):
                 return self.role
             else:
                 return Prompt.ask(message, default=self.role)
 
-    def prompt_about(self, console):
+    def prompt_about(self):
         message = "[bold green]Tell us about yourself[/bold green]"
         if self.about is None:
             return Prompt.ask(message)
         else:
-            console.print(f"About: {self.about}")
+            std_console.print(f"About: {self.about}")
             if Confirm.ask("correct?", default=True):
                 return self.about
             else:
