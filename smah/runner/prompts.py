@@ -319,10 +319,10 @@ class Prompts:
             
             Thought Statements:
             Note use the backtick symbol to open and close your thought statements.
-            - Use `Thinking: <statement>` to reflect on your output and improve it.
-            - Use `Assumption: <statement>` to reflect on your assumptions and improve your output.
-            - Use `Tangent: <statement>` to reflect on tangential items that may improve your output.
-            - Use `Inner-Critic: <statement>` to reflect on your output and improve it. 
+            - Use `Thinking: <statement>` before inside of and after output sections to plan your output and improve it.
+            - Use `Assumption: <statement>` before output sections to clarify assumptions made in your reply.
+            - Use `Tangent: <statement>` before, inside and after output sections to reflect on tangential items that may improve your output or are interesting.
+            - Use `Inner-Critic: <statement>` after output sections to reflect on your output and improve it. If indicated you can proceed with additional output based on your inner critic's feedback. 
 
             ## Intent Statements
             Intent statements are statements where you plan out how you will reply they should be placed inside an intent code-fence.            
@@ -335,7 +335,7 @@ class Prompts:
 
             ## Closing Remarks
             Your output should be heavily interspersed with thinking comments and your output should adjust based on observations made in those thought comments.
-            Such as identifying an error or issue.                        
+            Such as identifying an error or issue.                 
             ----
             # User Inquiry
             {request}
