@@ -90,10 +90,10 @@ def __with_query(args) -> Optional[str]:
             with open(args.instructions, 'r') as file:
                 return file.read()
         except FileNotFoundError as e:
-            logging.error("Instruction file not found: %s", instructions_file)
+            logging.error("Instruction file not found: %s", args.instructions)
             raise e
         except IOError as e:
-            logging.error("IO error reading file '%s': %s", instructions_file, str(e))
+            logging.error("IO error reading file '%s': %s", args.instructions, str(e))
             raise e
 
     return None
