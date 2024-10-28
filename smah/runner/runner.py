@@ -278,11 +278,23 @@ class Runner:
             --- 
             When you are ready, reply ack.            
             """).format(models=models)
-        std_console.print(system_prompt)
         return self.message(content=system_prompt)
 
     def run(self, model: Model, thread: list, response_format: Optional[dict] = None):
         if model.provider == "openai":
+
+            # Log Thread
+            request = "\n-------------------------------\n".join([f"{m['role']}:{m['content']}" for m in thread])
+            request = textwrap.dedent(
+                """
+                # RUN.thread
+                model: {model}                
+                ## Request
+                {request}
+                """).format(request=request, model=model.model)
+            logging.info(request)
+
+
             client = OpenAI(
                 api_key=self.settings.inference.providers['openai'].api_key(self.args)
             )
@@ -315,6 +327,8 @@ class Runner:
                         messages=thread,
                         max_tokens=out
                     )
+
+            logging.info(f"RUN.thread:\n{response}")
             return response
 
 
@@ -519,7 +533,7 @@ class Runner:
             _, p = plan
             log = textwrap.dedent(
                 """
-                # Query Plan
+                # Pipe Plan
                 model: {model}
                 reason: {reason}
                 include_settings: {include_settings}
@@ -528,7 +542,7 @@ class Runner:
                 format_output_reason: {format_output_reason}
                 instructions: {instructions}
                 """).format(**p)
-            log = Panel(log, title="Query Plan", style="bold yellow", box=rich.box.SQUARE)
+            log = Panel(log, title="Pipe Plan", style="bold yellow", box=rich.box.SQUARE)
             err_console.print(log)
 
             prompt = textwrap.dedent(
@@ -559,24 +573,27 @@ class Runner:
                 """)
 
             instructions = textwrap.dedent("""
-            # PROCESSING INSTRUCTIONS
-            Your operator
-            has requested you apply the following logic to the following pipe input content.
+            # PIPE INPUT
+            Appy the user request and additional instructions on the following >>> Pipe data.
             ----
+            ## Request
             {query}
-            ----
-            Reply ack and I will send the first chunk of the pipe input. Once sent unless asked otherwise assume user desires a tab deliminated output stream to be passed to other terminal commands.
+            ## Additional Instructions
+            {instructions}
+            >>> Pipe
+            {pipe}
             """).format(
                 query=textwrap.dedent(query),
+                pipe=pipe,
                 instructions=p["instructions"]
             )
-
-            pipe_data = textwrap.dedent(
-                """
-                >>> From Pipe
-                ----
-                {pipe}            
-                """).format(pipe=pipe)
+            #
+            # pipe_data = textwrap.dedent(
+            #     """
+            #     >>> From Pipe
+            #     ----
+            #     {pipe}
+            #     """).format(pipe=pipe)
 
             thread = [
                 self.noizu_prompt_lingua_message(),
@@ -586,8 +603,6 @@ class Runner:
                 self.message(content=prompt),
                 self.ack(),
                 self.message(content=instructions),
-                self.ack(),
-                self.message(content=pipe_data),
             ]
             model = self.settings.inference.models[p["model"]]
             response = self.run(

@@ -14,3 +14,4 @@ noizu-ops.log
 current.log
 build/
 noizu_ops.egg-info/
+.tool-versions
