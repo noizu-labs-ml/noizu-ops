@@ -42,6 +42,7 @@ def __add_general_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('-i', '--instructions', type=str, help='The Instruction File to process')
     parser.add_argument('--interactive', action=argparse.BooleanOptionalAction, help='Run in interactive mode', default=False)
     parser.add_argument('-c', '--config', type=str, help='Path to alternative config file')
+    parser.add_argument('--database', type=str, help='Path to sqlite smah database')
     parser.add_argument('--configure', action=argparse.BooleanOptionalAction, help='Enter Config Setup', default=False)
     parser.add_argument('-v', '--verbose', action='count', default=0, help="Set Verbosity Level, such as -vv")
 

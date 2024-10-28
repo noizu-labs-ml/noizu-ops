@@ -29,7 +29,6 @@ from typing import Optional
 import smah.console
 from smah.runner import Runner
 from smah.settings import Settings, configurator
-# from smah.runner import Runner
 import smah.logs
 import smah.args
 

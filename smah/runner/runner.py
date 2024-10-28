@@ -13,6 +13,7 @@ from rich.panel import Panel
 from smah.console import std_console, err_console
 from smah.settings.inference.provider.model import Model
 from smah.runner.prompts import Prompts
+from smah.database import Database
 
 class Runner:
     MAX_PIPE_LENGTH = 2048
@@ -111,6 +112,7 @@ class Runner:
     def __init__(self, args, settings):
         self.args = args
         self.settings = settings
+        self.db = Database(args)
 
 
 

@@ -19,6 +19,7 @@ psutil = "^6.1.0"
 
 [tool.poetry.scripts]
 smah = "smah.smah:main"
+smah-db = "smah.smah_migrate:main"
 
 [build-system]
 requires = ["poetry-core"]

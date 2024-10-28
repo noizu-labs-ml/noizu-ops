@@ -13,6 +13,7 @@ from smah.settings.inference import Inference
 
 class Settings:
     CONFIG_VSN = "0.0.1"
+    DEFAULT_CONFIG_FILE = os.path.expanduser("~/.smah/config.yaml")
 
     @staticmethod
     def config_vsn() -> str:
@@ -20,7 +21,7 @@ class Settings:
 
     @staticmethod
     def default_config() -> str:
-        return os.path.expanduser("~/.smah/config.yaml")
+        return Settings.DEFAULT_CONFIG_FILE
 
     @staticmethod
     def vsn_supported(vsn: Optional[str]) -> bool:
