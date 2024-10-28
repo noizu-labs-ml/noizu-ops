@@ -21,7 +21,7 @@ class Runner:
 
 
     @staticmethod
-    def log_query_plan(plan: dict, level: int = logging.INFO, show: bool = False):
+    def log_query_plan(plan: dict, level: int = logging.DEBUG, show: bool = False):
         plan = yaml.dump(plan, sort_keys=False)
         logging.log(level, f"Query Plan:\n{plan}")
         if show:
@@ -33,7 +33,7 @@ class Runner:
             )
 
     @staticmethod
-    def log_pipe_plan(plan: dict, level: int = logging.INFO, show: bool = False):
+    def log_pipe_plan(plan: dict, level: int = logging.DEBUG, show: bool = False):
         plan = yaml.dump(plan, sort_keys=False)
         logging.log(level, f"Pipe Plan:\n{plan}")
         if show:
@@ -62,7 +62,8 @@ class Runner:
             thread: list,
             response_format: dict | NotGiven,
             options: Optional[dict] = None,
-            show: bool = False
+            show: bool = False,
+            level: int = logging.INFO
     ) -> None:
         payload = yaml.dump(
             {
@@ -73,7 +74,7 @@ class Runner:
             },
             sort_keys=False
         )
-        logging.info(f"OpenAI Completion Payload:\n{payload}")
+        logging.log(level, f"OpenAI Completion Payload:\n{payload}")
         if show:
             err_console.print(Panel(
                 Markdown("```yaml\n" + payload + "\n```\n"),
@@ -83,12 +84,12 @@ class Runner:
             )
 
     @staticmethod
-    def log_openai_completion_response(response: ChatCompletion, show: bool = False) -> None:
+    def log_openai_completion_response(response: ChatCompletion, level = logging.INFO, show: bool = False) -> None:
         payload = yaml.dump(
             response,
             sort_keys=False
         )
-        logging.info(f"OpenAI Completion Response:\n{payload}")
+        logging.log(level, f"OpenAI Completion Response:\n{payload}")
         if show:
             err_console.print(Panel(
                 Markdown("```yaml\n" + payload + "\n```\n"),
@@ -100,7 +101,7 @@ class Runner:
     @staticmethod
     def planner_response(response: ChatCompletion) -> Tuple[bool, dict] | None:
         plan = json.loads(response.choices[0].message.content)
-        required_keys = ["model", "reason", "include_settings", "include_settings_reason", "format_output",
+        required_keys = ["title", "model", "reason", "include_settings", "include_settings_reason", "format_output",
                          "format_output_reason", "instructions"]
         if all(key in plan for key in required_keys):
             return True, plan
@@ -123,6 +124,17 @@ class Runner:
             api_key=api_key
         )
         return client
+
+    def resume(self, id: int, title: str, plan: dict, pipe: str, messages: list) -> None:
+        model_name = self.args.model or plan['model']
+        model = self.settings.inference.models[model_name]
+        print(f"Continue Last Conversation #{id} - {title}")
+        print(f"Model: {model.model}")
+        for message in messages:
+            print(f"role: {message['role']}")
+            print(f"content: \n{message['content']}")
+            print("----------")
+        exit(0)
 
     def run(self,
             model: Model,
@@ -258,8 +270,17 @@ class Runner:
             response_body = response.choices[0].message.content
             response_body = Markdown(response_body) if p["format_output"] else response_body
             std_console.print(response_body)
-            return response.choices[0].message.content
 
+            self.db.save_chat(
+                p["title"],
+                self.args,
+                p,
+                [
+                    Prompts.message(content=request),
+                    {'role': 'assistant', 'content': response.choices[0].message.content}
+                ]
+            )
+            return response.choices[0].message.content
         return None
 
 
@@ -300,6 +321,24 @@ class Runner:
             response_body = response.choices[0].message.content
             response_body = Markdown(response_body) if p["format_output"] else response_body
             std_console.print(response_body)
+
+            request = textwrap.dedent(
+                """
+                {request}                
+
+                Additional Instructions:
+                {instructions}
+                """).format(request=query, instructions=p["instructions"])
+            self.db.save_chat(
+                p["title"],
+                self.args,
+                p,
+                [
+                    Prompts.message(content=request),
+                    {'role': 'assistant', 'content': response.choices[0].message.content}
+                ],
+                pipe=pipe
+            )
             return response.choices[0].message.content
         return None
 

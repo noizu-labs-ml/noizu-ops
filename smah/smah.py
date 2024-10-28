@@ -27,10 +27,36 @@ import logging
 from typing import Optional
 
 import smah.console
+from smah.database import Database
 from smah.runner import Runner
 from smah.settings import Settings, configurator
 import smah.logs
 import smah.args
+
+def resume_chat(args):
+    """
+    Resumes the last conversation from the database.
+
+    Args:
+        args (argparse.Namespace): The parsed command-line arguments.
+    """
+    db = Database(args)
+    session = db.last_session()
+    if session:
+        args = smah.args.merge_args(args, session['args'])
+        settings = Settings(config=args.config)
+
+        # If settings are not configured, ask user to provide necessary information
+        if not settings.is_configured() or args.configure:
+            settings = configurator(settings, gui=args.gui)
+            settings.log(print=True, format=True)
+        else:
+            settings.log(print=(args.verbose >= 3), format=True)
+        runner = Runner(args, settings)
+        runner.resume(id=session['id'], title=session['title'], plan=session['plan'], pipe=session['pipe'], messages=session['messages'])
+    else:
+        print("No previous session found.")
+        exit(1)
 
 def main():
     """
@@ -48,25 +74,30 @@ def main():
 
     try:
         args, pipe = smah.args.extract_args()
-        settings = Settings(config=args.config)
 
-        # If settings are not configured, ask user to provide necessary information
-        if not settings.is_configured() or args.configure:
-            settings = configurator(settings, gui=args.gui)
-            settings.log(print=True, format=True)
+        if args.resume:
+            resume_chat(args)
         else:
-            settings.log(print=(args.verbose >= 3), format=True)
-        runner = Runner(args, settings)
+            settings = Settings(config=args.config)
 
-        query = __with_query(args)
-
-        if args.interactive or not query:
-            runner.interactive(query=query, pipe=pipe)
-        else:
-            if pipe:
-                runner.pipe(query=query, pipe=pipe)
+            # If settings are not configured, ask user to provide necessary information
+            if not settings.is_configured() or args.configure:
+                settings = configurator(settings, gui=args.gui)
+                settings.log(print=True, format=True)
             else:
-                runner.query(query=query)
+                settings.log(print=(args.verbose >= 3), format=True)
+            runner = Runner(args, settings)
+
+
+            query = __with_query(args)
+
+            if args.interactive or not query:
+                runner.interactive(query=query, pipe=pipe)
+            else:
+                if pipe:
+                    runner.pipe(query=query, pipe=pipe)
+                else:
+                    runner.query(query=query)
     except Exception as e:
         logging.error("An unexpected error occurred in main: %s", str(e), exc_info=True)
 

@@ -30,6 +30,10 @@ class Prompts:
                 "schema": {
                     "type": "object",
                     "properties": {
+                        "title": {
+                          "type": "string",
+                          "description": "Concise title describing user's request."
+                        },
                         "model": {
                             "type": "string",
                             "description": "The model to use for the response.",
@@ -60,7 +64,7 @@ class Prompts:
                         }
                     },
                     "additionalProperties": False,
-                    "required": ["model", "reason", "include_settings", "include_settings_reason","format_output","format_output_reason", "instructions"],
+                    "required": ["title", "model", "reason", "include_settings", "include_settings_reason","format_output","format_output_reason", "instructions"],
                 }
             }
         }
@@ -216,9 +220,11 @@ class Prompts:
             # MODEL SELECTION PROMPT
             You are the Model Selector.
             Based on your operator, system settings and the specific request below you will select the best model by id from the list models to process with.
-            You are additionally to flag:
-                - The appropriate response format
-                - if system settings are required
+            You are additionally to return:
+                - a concise title describing the user's request
+                - reason for model selection
+                - The appropriate response format, and reason for selection
+                - if system settings are required, and reason for selection
                 - additional instructions for handling their request.
 
             Weigh cost and speed in selecting your model, generally cheaper and faster is best unless the problem is highly complicated and requires a slower more advanced model

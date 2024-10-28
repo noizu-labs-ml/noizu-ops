@@ -8,7 +8,8 @@ from smah.settings.settings import Settings
 from logging.handlers import RotatingFileHandler
 
 # Constants
-DEFAULT_LOG_LEVEL = logging.INFO
+DEFAULT_LOG_LEVEL = logging.DEBUG
+DEFAULT_CONSOLE_LOG_LEVEL = logging.WARN
 DEFAULT_MAX_BYTES = 10 ** 6
 DEFAULT_BACKUP_COUNT = 3
 DEFAULT_LOG_DIR = os.path.expanduser("~/.smah/logs")
@@ -16,10 +17,11 @@ DEFAULT_LOG_DIR = os.path.expanduser("~/.smah/logs")
 
 def configure(
         log_level: int = DEFAULT_LOG_LEVEL,
+        console_log_level: Optional[int] = DEFAULT_CONSOLE_LOG_LEVEL,
         log_file: Optional[str] = None,
         max_bytes: int = DEFAULT_MAX_BYTES,
         backup_count: int = DEFAULT_BACKUP_COUNT,
-        out_pipe: TextIO = sys.stderr
+        console_out: TextIO = sys.stderr
 ) -> None:
     """
     Configure logging settings.
@@ -29,8 +31,9 @@ def configure(
         log_file (Optional[str]): The path to the log file.
         max_bytes (int): Maximum size of the log file before rotation.
         backup_count (int): Number of backup files to keep.
-        out_pipe (TextIO): The output stream for logging.
+        console_out (TextIO): The output stream for logging.
     """
+    console_log_level = console_log_level or log_level
     if log_file is None:
         log_file = os.path.join(DEFAULT_LOG_DIR, f"smah.{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
 
@@ -49,7 +52,15 @@ def configure(
                 maxBytes=max_bytes,
                 backupCount=backup_count
             ),
-            logging.StreamHandler(out_pipe)
+            logging.StreamHandler(console_out)
         ]
     )
+
+    for handler in logging.getLogger().handlers:
+        if isinstance(handler, logging.StreamHandler):
+            handler.setLevel(console_log_level)
+        elif isinstance(handler, RotatingFileHandler):
+            handler.setLevel(log_level)
+
+
     logging.info("Logging Configured")

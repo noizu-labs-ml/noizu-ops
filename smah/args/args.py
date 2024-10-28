@@ -2,6 +2,22 @@ import argparse
 import sys
 import logging
 
+def merge_args(args: argparse.Namespace, config: dict) -> argparse.Namespace:
+    """
+    Merges parsed command-line arguments with configuration settings.
+
+    Args:
+        args (Namespace): Parsed command-line arguments.
+        config (dict): Configuration settings.
+
+    Returns:
+        Namespace: Merged arguments and settings.
+    """
+    for key, value in config.items():
+        if key in args and getattr(args, key) is None:
+            setattr(args, key, value)
+    return args
+
 def extract_args() -> tuple[argparse.Namespace, str | None]:
     """
     Parses and extracts command-line arguments for the SMAH CLI tool.
@@ -44,6 +60,7 @@ def __add_general_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('-c', '--config', type=str, help='Path to alternative config file')
     parser.add_argument('--database', type=str, help='Path to sqlite smah database')
     parser.add_argument('--configure', action=argparse.BooleanOptionalAction, help='Enter Config Setup', default=False)
+    parser.add_argument('--continue', dest="resume", action=argparse.BooleanOptionalAction, help='Continue Last Conversation', default=False)
     parser.add_argument('-v', '--verbose', action='count', default=0, help="Set Verbosity Level, such as -vv")
 
 def __add_ai_arguments(parser: argparse.ArgumentParser) -> None:
