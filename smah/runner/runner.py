@@ -128,6 +128,16 @@ class Runner:
         return client
 
     @staticmethod
+    def replace_exec_tags(content: str):
+        # https://lxml.de/element_classes.html
+        # find <exec tags and extract the shell attribute and inner title, purpose and command tags using regex
+        # replace the exec tag with the output of the command
+        # return the content
+
+
+
+
+    @staticmethod
     def print_message(message: dict, format: bool = False, styles: Optional[dict] = None):
         if format:
             styles = styles or {
