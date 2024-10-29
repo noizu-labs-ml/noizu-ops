@@ -3,10 +3,10 @@ import textwrap
 from rich.prompt import Prompt, Confirm
 from typing import Optional
 # Initialize standard console for general output
-std_console: Console = Console()
+std_console: Console = Console(width=100, legacy_windows=False)
 
 # Initialize error console for error output
-err_console: Console = Console(stderr=True)
+err_console: Console = Console(width=100, legacy_windows=False, stderr=True)
 
 
 def prompt_string(

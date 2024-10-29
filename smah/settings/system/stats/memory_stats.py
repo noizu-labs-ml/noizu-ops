@@ -9,10 +9,10 @@ class MemoryStats(BaseStats):
 
     Attributes:
         time_stamp (datetime): The timestamp of the last update.
-        last_total (float): The last recorded total memory.
-        last_available (float): The last recorded available memory.
-        last_used (float): The last recorded used memory.
-        last_percent (float): The last recorded memory usage percentage.
+        total (float): The last recorded total memory.
+        available (float): The last recorded available memory.
+        used (float): The last recorded used memory.
+        percent (float): The last recorded memory usage percentage.
     """
 
     @staticmethod
@@ -43,10 +43,10 @@ class MemoryStats(BaseStats):
         Initializes the MemoryStats instance.
         """
         super().__init__()
-        self.last_total = None
-        self.last_available = None
-        self.last_used = None
-        self.last_percent = None
+        self.total = None
+        self.available = None
+        self.used = None
+        self.percent = None
 
     def update(self):
         """
@@ -54,10 +54,10 @@ class MemoryStats(BaseStats):
         """
 
         self.time_stamp = datetime.datetime.now()
-        self.last_total = self.memory_info("total")
-        self.last_free = self.memory_info("free")
-        self.last_used = self.memory_info("used")
-        self.last_percent = self.memory_info("percent")
+        self.total = self.memory_info("total")
+        self.free = self.memory_info("free")
+        self.used = self.memory_info("used")
+        self.percent = self.memory_info("percent")
 
     def readings(self, threshold=100):
         """
@@ -74,10 +74,10 @@ class MemoryStats(BaseStats):
             self.update()
         return {
             "time": self.time_stamp,
-            "total": self.last_total,
-            "free": self.last_free,
-            "used": self.last_used,
-            "percent": self.last_percent
+            "total": self.total,
+            "free": self.free,
+            "used": self.used,
+            "percent": self.percent
         }
 
     def show(self, options=None):
@@ -93,9 +93,9 @@ class MemoryStats(BaseStats):
             """
         ).strip().format(
             time=self.time_stamp,
-            count=self.last_total,
-            free=self.last_free,
-            used=self.last_used,
-            percent=self.last_percent
+            count=self.total,
+            free=self.free,
+            used=self.used,
+            percent=self.percent
         )
         return template

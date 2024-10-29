@@ -29,7 +29,7 @@ def sut__mixed(options: Optional[dict] = None):
 
         <cot type="{type}">{msg}</cot>
         
-        <exec shell="zsh">
+        <exec shell="zsh" exec-if="apple==5">
         <title>Echo Hello World</title>
         <purpose>Show how to echo Hello World to the console</purpose>
         <command>
@@ -91,11 +91,10 @@ def test_cot_and_exec_to_md():
         ...
 
         `Thought: I wonder if this is all there is`
-                
-        ***Echo Hello World:***
-        Show how to echo Hello World to the console
         
         ```zsh
+        # Echo Hello World
+        
         echo "Hello World"
         ```
 
@@ -104,3 +103,10 @@ def test_cot_and_exec_to_md():
         """
     )
     assert md == expected, f"\nExpected:\n{expected}\n---\nActual:\n{md}"
+
+def test_extract_commands():
+    message = sut("mixed")
+    commands = ResponseParser.extract_commands(message, {'conditions': {'apple': 4}})
+    assert commands == []
+    commands = ResponseParser.extract_commands(message, {'conditions': {'apple': 5}})
+    assert len(commands) == 1

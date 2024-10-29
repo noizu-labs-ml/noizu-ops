@@ -9,10 +9,10 @@ class DiskStats(BaseStats):
 
     Attributes:
         time_stamp (datetime): The timestamp of the last update.
-        last_total (float): The last recorded total disk space.
-        last_available (float): The last recorded available disk space.
-        last_used (float): The last recorded used disk space.
-        last_percent (float): The last recorded disk usage percentage.
+        total (float): The last recorded total disk space.
+        available (float): The last recorded available disk space.
+        used (float): The last recorded used disk space.
+        percent (float): The last recorded disk usage percentage.
     """
 
     @staticmethod
@@ -45,10 +45,10 @@ class DiskStats(BaseStats):
         """
         super().__init__()
 
-        self.last_total = None
-        self.last_free = None
-        self.last_used = None
-        self.last_percent = None
+        self.total = None
+        self.free = None
+        self.used = None
+        self.percent = None
 
     def update(self):
         """
@@ -56,10 +56,10 @@ class DiskStats(BaseStats):
         """
 
         self.time_stamp = datetime.datetime.now()
-        self.last_total = self.disk_info("total")
-        self.last_free = self.disk_info("free")
-        self.last_used = self.disk_info("used")
-        self.last_percent = self.disk_info("percent")
+        self.total = self.disk_info("total")
+        self.free = self.disk_info("free")
+        self.used = self.disk_info("used")
+        self.percent = self.disk_info("percent")
 
     def readings(self, threshold=100):
         """
@@ -76,10 +76,10 @@ class DiskStats(BaseStats):
             self.update()
         return {
             "time": self.time_stamp,
-            "total": self.last_total,
-            "free": self.last_free,
-            "used": self.last_used,
-            "percent": self.last_percent
+            "total": self.total,
+            "free": self.free,
+            "used": self.used,
+            "percent": self.percent
         }
 
     def show(self, options=None):
@@ -95,9 +95,9 @@ class DiskStats(BaseStats):
             """
         ).strip().format(
             time=self.time_stamp,
-            count=self.last_total,
-            free=self.last_free,
-            used=self.last_used,
-            percent=self.last_percent
+            count=self.total,
+            free=self.free,
+            used=self.used,
+            percent=self.percent
         )
         return template

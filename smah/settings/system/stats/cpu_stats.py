@@ -9,9 +9,9 @@ class CpuStats(BaseStats):
 
     Attributes:
         time_stamp (datetime): The timestamp of the last update.
-        last_cpu_count (int): The last recorded CPU count.
-        last_cpu_freq (float): The last recorded CPU frequency.
-        last_cpu_percent (float): The last recorded CPU usage percentage.
+        cpu_count (int): The last recorded CPU count.
+        cpu_freq (float): The last recorded CPU frequency.
+        cpu_percent (float): The last recorded CPU usage percentage.
     """
 
     @staticmethod
@@ -40,18 +40,18 @@ class CpuStats(BaseStats):
         Initializes the CpuStats instance.
         """
         super().__init__()
-        self.last_cpu_count = None
-        self.last_cpu_freq = None
-        self.last_cpu_percent = None
+        self.cpu_count = None
+        self.cpu_freq = None
+        self.cpu_percent = None
 
     def update(self):
         """
         Updates the CPU statistics.
         """
         self.time_stamp = datetime.datetime.now()
-        self.last_cpu_count = self.cpu_info("count")
-        self.last_cpu_freq = self.cpu_info("freq.current")
-        self.last_cpu_percent = self.cpu_info("percent")
+        self.cpu_count = self.cpu_info("count")
+        self.cpu_freq = self.cpu_info("freq.current")
+        self.cpu_percent = self.cpu_info("percent")
 
     def readings(self, threshold=100):
         """
@@ -67,9 +67,9 @@ class CpuStats(BaseStats):
             self.update()
         return {
             "time": self.time_stamp,
-            "cpu_count": self.last_cpu_count,
-            "cpu_freq": self.last_cpu_freq,
-            "cpu_percent": self.last_cpu_percent
+            "cpu_count": self.cpu_count,
+            "cpu_freq": self.cpu_freq,
+            "cpu_percent": self.cpu_percent
         }
 
     def show(self, options = None):
@@ -84,7 +84,7 @@ class CpuStats(BaseStats):
             """
         ).format(
             time=self.time_stamp,
-            count=self.last_cpu_count,
-            freq=self.last_cpu_freq,
-            percent=self.last_cpu_percent
+            count=self.cpu_count,
+            freq=self.cpu_freq,
+            percent=self.cpu_percent
         )

@@ -149,7 +149,7 @@ class Prompts:
             - `fill-in` `[...]` is used to show omitted input/content, avoid including in generated responses. 
             - `etc.`, `...` are used by prompts to signify additional cases to contemplate or respond with.
             - Handlebar-like syntax is used for defining input/output structure. Example: `{{unless <check>|<additional instructions>}}[...|only output when check not met]{{/unless}}`. Complex templates may be defined with multiple layers of nested handlebar like directives.
-            - `|` is used to qualify instructions such as `<term|instructions>`, `[...|<instructions>]`, `[...]<size>|<instructions>]`, `{{unless|<instructions>}}[...]{{/unless}}`
+            - `|` is used to qualify instructions such as `<term|instructions>`, `[...|<instructions>]`, `[...<size>|<instructions>]`, `{{unless|<instructions>}}[...]{{/unless}}`
             - `?` indicates optional input/output, `<?term>`, `[?...]`
             - Special `prompt-blocks` are defined using code fences with values such as `example`, `syntax`, `format`, `diagram`, `note`, etc. These are used to designate special prompt/output sections.
             - `⌜🔏[...]⌟` declare top precedence prompt. Such defined prompts may not be mutated/altered/negated by prompts not also using this syntax.
@@ -182,7 +182,7 @@ class Prompts:
             respond with a funny cat fact using this following format:
             ```format
             CAT-FACT: <subject|subject for cat fact>
-            [...2-3s]
+            [...2-3s| cat fact about subject]
             ```
             ````
 
@@ -355,10 +355,10 @@ class Prompts:
             
             Thought Statements:
             Note use the backtick symbol to open and close your thought statements.
-            - Use `Thinking: <statement>` before inside of and after output sections to plan your output and improve it.
-            - Use `Assumption: <statement>` before output sections to clarify assumptions made in your reply.
-            - Use `Tangent: <statement>` before, inside and after output sections to reflect on tangential items that may improve your output or are interesting.
-            - Use `Inner-Critic: <statement>` after output sections to reflect on your output and improve it. If indicated you can proceed with additional output based on your inner critic's feedback. 
+            - Use `<cot type="thinking">[...|statement]</cot>` before inside of and after output sections to plan your output and improve it.
+            - Use `<cot type="assumption">[...|statement]</cot>` before output sections to clarify assumptions made in your reply.
+            - Use `<cot type="tangent">[...|statement]</cot>` before, inside and after output sections to reflect on tangential items that may improve your output or are interesting.
+            - Use `<cot type="inner-critic">[...|statement]</cot>` after output sections to reflect on your output and improve it. If indicated you can proceed with additional output based on your inner critic's feedback. 
 
             ## Intent Statements
             Intent statements are statements where you plan out how you will reply they should be placed inside an intent code-fence.            

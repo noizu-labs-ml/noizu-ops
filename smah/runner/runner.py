@@ -10,9 +10,10 @@ from openai import OpenAI, NotGiven, NOT_GIVEN
 from openai.types.chat import ChatCompletion
 from rich.markdown import Markdown
 from rich.panel import Panel
-from rich.prompt import Prompt
+from rich.prompt import Prompt, Confirm
 
 from smah.console import std_console, err_console
+from smah.runner.response_parser import ResponseParser
 from smah.settings.inference.provider.model import Model
 from smah.runner.prompts import Prompts
 from smah.database import Database
@@ -139,7 +140,9 @@ class Runner:
 
 
     @staticmethod
-    def print_message(message: dict, format: bool = False, styles: Optional[dict] = None):
+    def print_message(message: dict, format: bool = False, strip_cot = True,styles: Optional[dict] = None):
+
+
         if format:
             styles = styles or {
                 'assistant': 'bold white',
@@ -147,8 +150,11 @@ class Runner:
                 'default': 'bold green'
             }
             style = styles.get(message['role'], styles.get('default','bold green'))
+            content = message['content']
+            content = ResponseParser.to_markdown(content, {'strip-cot': strip_cot})
+
             std_console.print(
-                Panel(Markdown(message['content']), title=message['role'], style=style, box=rich.box.ROUNDED)
+                Panel(Markdown(content, style="white"), title=message['role'], style=style, box=rich.box.ROUNDED)
             )
         else:
             std_console.print(f"--- {message['role']} ---")
@@ -191,7 +197,6 @@ class Runner:
             # Query with Instructions
             thread.append(Prompts.query_prompt(request=query))
             response = self.run(model, thread, tools=[Prompts.run_command_tool()])
-            print("response", response)
 
             # Response
             message = Prompts.message(role=response.choices[0].message.role, content=response.choices[0].message.content)
@@ -340,10 +345,25 @@ class Runner:
                 ],
                 tools=[Prompts.run_command_tool()]
             )
-            print("response", response)
-            response_body = response.choices[0].message.content
-            response_body = Markdown(response_body) if p["format_output"] else response_body
-            std_console.print(response_body)
+            msg = {'role': 'assistant', 'content': response.choices[0].message.content}
+            self.print_message(msg, format=self.args.rich)
+            commands = ResponseParser.extract_commands(response.choices[0].message.content)
+            for command in commands:
+                std_console.print(
+                    textwrap.dedent(
+                        """
+                        title: {title}
+                        purpose: {purpose}
+                        command: 
+                        {command}                        
+                        """
+                    ).format(
+                        title=command['title'],
+                        purpose=command['purpose'],
+                        command=command['command']
+                    )
+                )
+                Confirm.ask("execute?")
 
             self.db.save_chat(
                 p["title"],
@@ -354,6 +374,9 @@ class Runner:
                     {'role': 'assistant', 'content': response.choices[0].message.content}
                 ]
             )
+
+
+
             return response.choices[0].message.content
         return None
 
