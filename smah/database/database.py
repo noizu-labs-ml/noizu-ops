@@ -156,6 +156,8 @@ class Database:
             """
             INSERT INTO settings (setting, setting_value)
             VALUES (?, ?)
+            ON CONFLICT(setting) DO UPDATE SET
+                setting_value = excluded.setting_value
             """,
             ("last_session", f"{chat_history_id}")
         )

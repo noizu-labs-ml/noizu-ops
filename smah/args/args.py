@@ -61,6 +61,8 @@ def __add_general_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--database', type=str, help='Path to sqlite smah database')
     parser.add_argument('--configure', action=argparse.BooleanOptionalAction, help='Enter Config Setup', default=False)
     parser.add_argument('--continue', dest="resume", action=argparse.BooleanOptionalAction, help='Continue Last Conversation', default=False)
+    parser.add_argument('--session', type=int, help='Resume Session')
+    parser.add_argument('--history', action=argparse.BooleanOptionalAction, help='Resume Recent Session', default=False)
     parser.add_argument('-v', '--verbose', action='count', default=0, help="Set Verbosity Level, such as -vv")
 
 def __add_ai_arguments(parser: argparse.ArgumentParser) -> None:
