@@ -153,12 +153,11 @@ class Runner:
             style = styles.get(message['role'], styles.get('default','bold green'))
             content = message['content']
             content = ResponseParser.to_markdown(content, {'strip-cot': strip_cot})
-
             std_console.print(
                 Panel(Markdown(content, style="white"), title=message['role'], style=style, box=rich.box.ROUNDED)
             )
         else:
-            std_console.print(f"--- {message['role']} ---")
+            std_console.print(f"\n\n--- {message['role']} ---")
             std_console.print(message['content'])
 
 
@@ -365,15 +364,15 @@ class Runner:
             self.log_query_plan(p, show=self.args.verbose >= 2)
 
             request = textwrap.dedent(
-                """
-                {request}                
+                """\
+                {request}
                 
                 Additional Instructions:
                 
                 {instructions}
                 """).format(request=query, instructions=p["instructions"])
             model = self.settings.inference.models[p["model"]]
-
+            print(query)
             self.print_message(Prompts.message(content=request), format=self.args.rich, strip_cot=False)
 
             response = self.run(

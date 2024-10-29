@@ -1,8 +1,116 @@
 import textwrap
 from enum import Enum
 from typing import Optional
-
 from lxml import etree
+
+html_tags = [
+    "a",
+    "abbr",
+    "acronym",
+    "address",
+    "applet",
+    "area",
+    "article",
+    "aside",
+    "audio",
+    "b",
+    "base",
+    "basefont",
+    "bdo",
+    "big",
+    "blockquote",
+    "body",
+    "br",
+    "button",
+    "canvas",
+    "caption",
+    "center",
+    "cite",
+    "code",
+    "col",
+    "colgroup",
+    "datalist",
+    "dd",
+    "del",
+    "dfn",
+    "div",
+    "dl",
+    "dt",
+    "em",
+    "embed",
+    "fieldset",
+    "figcaption",
+    "figure",
+    "font",
+    "footer",
+    "form",
+    "frame",
+    "frameset",
+    "head",
+    "header",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "hr",
+    "html",
+    "i",
+    "iframe",
+    "img",
+    "input",
+    "ins",
+    "kbd",
+    "label",
+    "legend",
+    "li",
+    "link",
+    "main",
+    "map",
+    "mark",
+    "meta",
+    "meter",
+    "nav",
+    "noscript",
+    "object",
+    "ol",
+    "optgroup",
+    "option",
+    "p",
+    "param",
+    "pre",
+    "progress",
+    "q",
+    "s",
+    "samp",
+    "script",
+    "section",
+    "select",
+    "small",
+    "source",
+    "span",
+    "strike",
+    "strong",
+    "style",
+    "sub",
+    "sup",
+    "table",
+    "tbody",
+    "td",
+    "textarea",
+    "tfoot",
+    "th",
+    "thead",
+    "time",
+    "title",
+    "tr",
+    "u",
+    "ul",
+    "var",
+    "video",
+    "wbr",
+]
 
 class ThoughtType(Enum):
     OTHER = 0
@@ -143,7 +251,7 @@ class ExecTag(TagBase):
             {command}
             ```
             """
-        ).format(
+        ).strip().format(
             title=title,
             shell=shell,
             command=command
@@ -167,13 +275,32 @@ class ResponseParser:
         pass
 
     @staticmethod
-    def replace_tag(elem: any, replace: str):
+    def replace_tag(elem: any, replace: Optional[str] = None, tail: Optional[str] = None):
         ps = elem.getprevious()
         p = elem.getparent()
         if ps is not None:
-            ps.tail += replace
+            t = (ps.tail or "")
+            l = t.split("\n")
+            if len(l) > 0:
+                r = len(l[-1])
+                if replace:
+                    t += textwrap.indent(replace, " " * r).lstrip()
+                t += (tail or "")
+            else:
+                t += ((replace or "").lstrip() + (tail or ""))
+            ps.tail = t
+
         elif p is not None:
-            p.text += replace
+            t = (p.text or "")
+            l = t.split("\n")
+            if len(l) > 0:
+                r = len(l[-1])
+                if replace:
+                    t += textwrap.indent(replace, " " * r).lstrip()
+                t += (tail or "")
+            else:
+                t += ((replace or "").lstrip() + (tail or ""))
+            p.text = t
         if p is not None:
             p.remove(elem)
 
@@ -193,7 +320,7 @@ class ResponseParser:
                     c = {
                         'name': ResponseParser.unescape_response(elem.name),
                         'prompt': ResponseParser.unescape_response(elem.prompt),
-                        'choices': ResponseParser.unescape_response(elem.choices)
+                        'choices': elem.choices
                     }
                     response.append(c)
         return response
@@ -232,16 +359,16 @@ class ResponseParser:
         response = response.replace("<", ":_smah_lt_:")
         response = response.replace("&amp;", ":_smah_amp_amp_:")
         response = response.replace("&", ":_smah_amp_:")
-        response = response.replace(":_smah_lt_:cot", "<cot")
-        response = response.replace(":_smah_lt_:/cot", "</cot")
-        response = response.replace(":_smah_lt_:exec", "<exec")
-        response = response.replace(":_smah_lt_:/exec", "</exec")
-        response = response.replace(":_smah_lt_:prompt", "<prompt")
-        response = response.replace(":_smah_lt_:/prompt", "</prompt")
-        response = response.replace(":_smah_lt_:title", "<title")
-        response = response.replace(":_smah_lt_:/title", "</title")
-        response = response.replace(":_smah_lt_:command", "<command")
-        response = response.replace(":_smah_lt_:/command", "</command")
+
+        for tag in ["smah-", "cot", "exec", "prompt", "title", "command", "set-condition", "choices", "choice"]:
+            response = response.replace(f":_smah_lt_:{tag}", f"<{tag}")
+            response = response.replace(f":_smah_lt_:/{tag}", f"</{tag}")
+
+        for tag in html_tags:
+            response = response.replace(f":_smah_lt_:{tag}", f"<{tag}")
+            response = response.replace(f":_smah_lt_:/{tag}", f"</{tag}")
+
+
         return response
 
     @staticmethod
@@ -264,22 +391,22 @@ class ResponseParser:
 
 
 
-        parser.feed("<smah-msg>" + response + "</smah-msg>")
+        parser.feed("<smah-msg>\n" + response + "\n</smah-msg>")
         for action, elem in events:
             if action == "end":
                 if isinstance(elem, ExecTag):
-                    ResponseParser.replace_tag(elem, elem.markdown + (elem.tail or ""))
+                    ResponseParser.replace_tag(elem, replace=elem.markdown, tail=elem.tail)
                 elif isinstance(elem, SetConditionTag):
-                    ResponseParser.replace_tag(elem, elem.tail or "")
+                    ResponseParser.replace_tag(elem, replace=None, tail=elem.tail)
                 elif isinstance(elem, ThoughtTag):
-                    ResponseParser.replace_tag(elem, (elem.tail or "") if options.get('strip-cot', True) else elem.markdown + (elem.tail or ""))
+                    ResponseParser.replace_tag(elem, replace=(None if options.get("strip-cot", True) else elem.markdown), tail=elem.tail)
 
         root = parser.close()
         response = etree.tostring(root, pretty_print=True).decode()
         response = ResponseParser.unescape_response(response)
 
 
-        return response[len("<smah-msg>"):-(len("</smah-msg>") + 1)]
+        return response[len("<smah-msg>\n"):-(len("\n</smah-msg>") + 1)]
 
 
 
