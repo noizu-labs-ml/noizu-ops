@@ -35,7 +35,7 @@ class Database:
         result = cursor.fetchone()
         cursor.close()
         if result:
-            (session_id,) = result[0]
+            (session_id,) = result
             session_id = int(session_id)
             return self.session(session_id)
         return None
