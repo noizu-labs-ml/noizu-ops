@@ -100,7 +100,8 @@ class ThoughtTag(TagBase):
             type = "Tangent"
         else:
             type = "Other"
-        body = ResponseParser.unescape_response(self.text.replace("`","'"))
+        body = self.text or ""
+        body = ResponseParser.unescape_response(body.replace("`","'"))
         return f"`{type}: {body}`"
 
 class ExecTag(TagBase):

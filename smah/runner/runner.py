@@ -193,7 +193,7 @@ class Runner:
         query = query.strip()
         while query != 'exit' and query:
             query_message = Prompts.message(content=query, role='user')
-            self.print_message(query_message, format=self.args.rich)
+            self.print_message(query_message, format=self.args.rich, strip_cot=False)
 
             # Query with Instructions
             thread.append(Prompts.query_prompt(request=query))
@@ -374,7 +374,7 @@ class Runner:
                 """).format(request=query, instructions=p["instructions"])
             model = self.settings.inference.models[p["model"]]
 
-            self.print_message(Prompts.message(content=request), format=self.args.rich)
+            self.print_message(Prompts.message(content=request), format=self.args.rich, strip_cot=False)
 
             response = self.run(
                 model=model,
