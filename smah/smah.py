@@ -27,7 +27,6 @@ import logging
 import textwrap
 from typing import Optional
 
-import lxml.etree
 from rich.prompt import Prompt
 
 import smah.console
@@ -142,8 +141,7 @@ class SmahLookup(etree.CustomElementClassLookup):
         return None
 
 
-
-def main2():
+def main():
     parser = etree.XMLPullParser(events={'end'})
     parser.set_element_class_lookup(SmahLookup())
     raw = textwrap.dedent(
@@ -204,7 +202,7 @@ def main2():
 
 
 
-def main():
+def main2():
     """
     The primary function that sets up application configuration and executes user-specified queries.
 
