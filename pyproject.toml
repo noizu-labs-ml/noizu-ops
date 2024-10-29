@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "smah"
-version = "0.1.7"
+version = "0.1.8"
 description = ""
 authors = ["Keith Brings <keith.brings@noizu.com>"]
 readme = "README.md"
