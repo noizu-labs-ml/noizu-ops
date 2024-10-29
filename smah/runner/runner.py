@@ -10,6 +10,8 @@ from openai import OpenAI, NotGiven, NOT_GIVEN
 from openai.types.chat import ChatCompletion
 from rich.markdown import Markdown
 from rich.panel import Panel
+from rich.prompt import Prompt
+
 from smah.console import std_console, err_console
 from smah.settings.inference.provider.model import Model
 from smah.runner.prompts import Prompts
@@ -125,15 +127,70 @@ class Runner:
         )
         return client
 
+    @staticmethod
+    def print_message(message: dict, format: bool = False, styles: Optional[dict] = None):
+        if format:
+            styles = styles or {
+                'assistant': 'bold white',
+                'user': 'bold blue',
+                'default': 'bold green'
+            }
+            style = styles.get(message['role'], styles.get('default','bold green'))
+            std_console.print(
+                Panel(Markdown(message['content']), title=message['role'], style=style, box=rich.box.ROUNDED)
+            )
+        else:
+            std_console.print(f"--- {message['role']} ---")
+            std_console.print(message['content'])
+
+
+
     def resume(self, id: int, title: str, plan: dict, pipe: str, messages: list) -> None:
         model_name = self.args.model or plan['model']
         model = self.settings.inference.models[model_name]
-        print(f"Continue Last Conversation #{id} - {title}")
-        print(f"Model: {model.model}")
+        open = textwrap.dedent(
+            f"""
+            Continue Session #{id} - {title}
+            =========
+            """
+        )
+        std_console.print(Markdown(open) if self.args.rich else open)
+
+        thread = [
+            Prompts.conventions(),
+            Prompts.ack(),
+            Prompts.system_settings(self.settings, include_system=plan['include_settings']),
+            Prompts.ack(),
+        ]
+
+        if pipe:
+            thread.append(Prompts.message(content=f"--- INPUT ---\n{pipe}"))
+            thread.append(Prompts.ack())
+
         for message in messages:
-            print(f"role: {message['role']}")
-            print(f"content: \n{message['content']}")
-            print("----------")
+            thread.append(Prompts.message(content=message['content'], role=message['role']))
+            self.print_message(message, format=self.args.rich)
+
+        query = Prompt.ask("[bold green]Message[/bold green]: (type 'exit' or enter to end session)")
+        query = query.strip()
+        while query != 'exit' and query:
+            query_message = Prompts.message(content=query, role='user')
+            self.print_message(query_message, format=self.args.rich)
+
+            # Query with Instructions
+            thread.append(Prompts.query_prompt(request=query))
+            response = self.run(model, thread)
+
+            # Response
+            message = Prompts.message(role=response.choices[0].message.role, content=response.choices[0].message.content)
+            self.print_message(message, format=self.args.rich)
+
+            # Update Chat History
+            self.db.append_to_chat(id, [query_message, message])
+
+            # Continue
+            query = Prompt.ask("[bold green]Message[/bold green]: (type 'exit' or enter to end session)")
+
         exit(0)
 
     def run(self,

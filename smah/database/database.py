@@ -108,6 +108,20 @@ class Database:
         response.reverse()
         return response
 
+    def append_to_chat(self, session_id: int, messages: list) -> None:
+        cursor = self.connection.cursor()
+        cursor.execute("BEGIN TRANSACTION")
+        for message in messages:
+            cursor.execute(
+                """
+                INSERT INTO chat_history_message (chat_history_id, message)
+                VALUES (?, ?)
+                """,
+                (session_id, json.dumps(message))
+            )
+        cursor.execute("COMMIT")
+        cursor.close()
+
     def save_chat(self, title: str, args: argparse.Namespace, plan: dict, messages: list, pipe: Optional[str] = None) -> None:
         cursor = self.connection.cursor()
 
