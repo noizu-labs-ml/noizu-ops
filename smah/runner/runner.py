@@ -453,7 +453,7 @@ class Runner:
             self.log_pipe_plan(p, show=self.args.verbose >= 2)
 
             request = textwrap.dedent(
-                """            
+                """\
                 {query}
                 
                 Additional Instructions:
@@ -486,7 +486,7 @@ class Runner:
             std_console.print(response_body)
 
             request = textwrap.dedent(
-                """
+                """\
                 {request}                
 
                 Additional Instructions:

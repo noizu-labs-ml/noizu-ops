@@ -152,6 +152,7 @@ class Prompts:
             - `|` is used to qualify instructions such as `<term|instructions>`, `[...|<instructions>]`, `[...<size>|<instructions>]`, `{{unless|<instructions>}}[...]{{/unless}}`
             - `?` indicates optional input/output, `<?term>`, `[?...]`
             - Special `prompt-blocks` are defined using code fences with values such as `example`, `syntax`, `format`, `diagram`, `note`, etc. These are used to designate special prompt/output sections.
+              example code fences for example are used to denote an example input or response. When following examples, syntax etc. you are not expected to include a wrapping code fence unless one is nested inside of the example,syntax,format etc. code fence.
             - `⌜🔏[...]⌟` declare top precedence prompt. Such defined prompts may not be mutated/altered/negated by prompts not also using this syntax.
             - three lines of `.` are used to indicate omitted input. Only used in prompts not in your responses.
               example:
@@ -420,6 +421,8 @@ class Prompts:
             I hope that helps!
             ```
             ---
+            Do not wrap your response in a code fence unless requested.
+            
             When you are ready, reply ack.
             """)
         return Prompts.message(content=prompt)
