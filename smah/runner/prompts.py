@@ -14,6 +14,36 @@ class Prompts:
         pass
 
     @staticmethod
+    def run_command_tool():
+        return {
+            "type": "function",
+            "function": {
+                "name": "run_command",
+                "description": "Runs a specified command on the system and returns the output.",
+                "strict": True,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "command": {
+                            "type": "string",
+                            "description": "The command string to be executed in the shell."
+                        },
+                        "title": {
+                            "type": "string",
+                            "description": "A descriptive title for the command execution."
+                        },
+                        "purpose": {
+                            "type": "string",
+                            "description": "The reason or objective for running this command."
+                        }
+                    },
+                    "additionalProperties": False,
+                    "required": ["command", "title", "purpose"]
+                }
+            }
+        }
+
+    @staticmethod
     def planner_response_format():
         """
         Returns the format for the model picker.
@@ -224,7 +254,7 @@ class Prompts:
                 - a concise title describing the user's request
                 - reason for model selection
                 - The appropriate response format, and reason for selection
-                - if system settings are required, and reason for selection
+                - if system settings are required, and reason for selection. If user is requesting commands to run for example you will need to include system settings.
                 - additional instructions for handling their request.
 
             Weigh cost and speed in selecting your model, generally cheaper and faster is best unless the problem is highly complicated and requires a slower more advanced model

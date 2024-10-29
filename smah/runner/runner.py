@@ -179,7 +179,8 @@ class Runner:
 
             # Query with Instructions
             thread.append(Prompts.query_prompt(request=query))
-            response = self.run(model, thread)
+            response = self.run(model, thread, tools=[Prompts.run_command_tool()])
+            print("response", response)
 
             # Response
             message = Prompts.message(role=response.choices[0].message.role, content=response.choices[0].message.content)
@@ -197,6 +198,7 @@ class Runner:
             model: Model,
             thread: list,
             response_format: dict | NotGiven = NOT_GIVEN,
+            tools: dict | NotGiven = NOT_GIVEN,
             options: Optional[dict] = None,
             show: bool = False
             ):
@@ -227,7 +229,8 @@ class Runner:
                 messages=thread,
                 max_completion_tokens=max_completion_tokens,
                 max_tokens=max_tokens,
-                response_format=response_format
+                response_format=response_format,
+                tools=tools
             )
             self.log_openai_completion_response(response, show=show)
 
@@ -323,8 +326,10 @@ class Runner:
                     Prompts.system_settings(self.settings, include_system=p["include_settings"]),
                     Prompts.ack(),
                     Prompts.query_prompt(request=request)
-                ]
+                ],
+                tools=[Prompts.run_command_tool()]
             )
+            print("response", response)
             response_body = response.choices[0].message.content
             response_body = Markdown(response_body) if p["format_output"] else response_body
             std_console.print(response_body)
