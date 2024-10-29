@@ -150,7 +150,7 @@ class Runner:
         model = self.settings.inference.models[model_name]
         open = textwrap.dedent(
             f"""
-            Continue Session #{id} - {title}
+            Continue Session #{id} - {title} ({model.provider}.{model.model})
             =========
             """
         )
@@ -311,6 +311,7 @@ class Runner:
                 {request}                
                 
                 Additional Instructions:
+                
                 {instructions}
                 """).format(request=query, instructions=p["instructions"])
             model = self.settings.inference.models[p["model"]]
@@ -352,6 +353,7 @@ class Runner:
                 {query}
                 
                 Additional Instructions:
+                
                 {instructions}
                 --- INPUT ---
                 {pipe}
@@ -384,6 +386,7 @@ class Runner:
                 {request}                
 
                 Additional Instructions:
+                
                 {instructions}
                 """).format(request=query, instructions=p["instructions"])
             self.db.save_chat(
