@@ -6,7 +6,7 @@ from lxml import etree
 
 class ThoughtType(Enum):
     OTHER = 0
-    THOUGHT = 1
+    THINKING = 1
     QUESTION = 2
     ASSUMPTION = 3
     INNER_CRITIC = 4
@@ -17,13 +17,13 @@ class TagBase(etree.ElementBase):
         child = self.cssselect(tag)
         if len(child) > 0:
             child = child[0]
-            return child.text.strip()
+            return ResponseParser.unescape_response(child.text.strip())
         return None
 
 class SetConditionTag(TagBase):
     @property
     def name(self):
-        return self.get("name")
+        return ResponseParser.unescape_response(self.get("name"))
 
     @property
     def prompt(self):
@@ -31,7 +31,7 @@ class SetConditionTag(TagBase):
         if prompt:
             return prompt
         else:
-            name = self.get("name")
+            name = ResponseParser.unescape_response(self.get("name"))
             return f"Set {name}"
 
     @property
@@ -40,15 +40,15 @@ class SetConditionTag(TagBase):
         x = self.cssselect("choices choice")
         if len(x) > 0:
             for c in x:
-                c_value = c.get("value")
-                c_label = c.text or c_value
+                c_value = ResponseParser.unescape_response(c.get("value"))
+                c_label = ResponseParser.unescape_response(c.text or c_value)
                 i = None
                 c_user = c.get("data-user") == "true"
                 if c_user:
                     i = {
-                        'prompt': c.get("data-prompt") or f"Enter {c_label}",
+                        'prompt': ResponseParser.unescape_response(c.get("data-prompt") or f"Enter {c_label}"),
                         'required': c.get("data-required") == "true",
-                        'check': c.get("data-check")
+                        'check': ResponseParser.unescape_response(c.get("data-check"))
                     }
                 choices.append({
                     'value': c_value,
@@ -67,7 +67,7 @@ class SetConditionTag(TagBase):
 class ThoughtTag(TagBase):
     THOUGHT_TYPES = {
         "tangent": ThoughtType.TANGENT,
-        "thought": ThoughtType.THOUGHT,
+        "thinking": ThoughtType.THINKING,
         "question": ThoughtType.QUESTION,
         "assumption": ThoughtType.ASSUMPTION,
         "inner-critic": ThoughtType.INNER_CRITIC
@@ -83,13 +83,13 @@ class ThoughtTag(TagBase):
 
     @property
     def thought(self):
-        return self.text
+        return ResponseParser.unescape_response(self.text)
 
     @property
     def markdown(self):
         type = self.THOUGHT_TYPES.get(self.get("type"), ThoughtType.OTHER)
-        if type == ThoughtType.THOUGHT:
-            type = "Thought"
+        if type == ThoughtType.THINKING:
+            type = "Thinking"
         elif type == ThoughtType.QUESTION:
             type = "Question"
         elif type == ThoughtType.ASSUMPTION:
@@ -100,7 +100,7 @@ class ThoughtTag(TagBase):
             type = "Tangent"
         else:
             type = "Other"
-        body = self.text.replace("`","'")
+        body = ResponseParser.unescape_response(self.text.replace("`","'"))
         return f"`{type}: {body}`"
 
 class ExecTag(TagBase):
@@ -113,7 +113,7 @@ class ExecTag(TagBase):
 
     @property
     def exec_if(self):
-        return self.get("exec-if", "true")
+        return ResponseParser.unescape_response(self.get("exec-if"))
 
     @property
     def title(self):
@@ -142,7 +142,7 @@ class ExecTag(TagBase):
             {command}
             ```
             """
-        ).strip().format(
+        ).format(
             title=title,
             shell=shell,
             command=command
@@ -183,16 +183,16 @@ class ResponseParser:
         parser = etree.XMLPullParser(recover=True)
         parser.set_element_class_lookup(SmahLookup())
         events = parser.read_events()
-
+        response = ResponseParser.escape_response(response)
         parser.feed("<smah-msg>" + response + "</smah-msg>")
         response = []
         for action, elem in events:
             if action == "end":
                 if isinstance(elem, SetConditionTag):
                     c = {
-                        'name': elem.name,
-                        'prompt': elem.prompt,
-                        'choices': elem.choices
+                        'name': ResponseParser.unescape_response(elem.name),
+                        'prompt': ResponseParser.unescape_response(elem.prompt),
+                        'choices': ResponseParser.unescape_response(elem.choices)
                     }
                     response.append(c)
         return response
@@ -200,10 +200,11 @@ class ResponseParser:
     @staticmethod
     def extract_commands(response: str, options: Optional[dict] = None) -> Optional[list]:
         options = options or {}
-        parser = etree.XMLPullParser()
+        parser = etree.XMLPullParser(recover=True)
         parser.set_element_class_lookup(SmahLookup())
         events = parser.read_events()
 
+        response = ResponseParser.escape_response(response)
         parser.feed("<smah-msg>" + response + "</smah-msg>")
         commands = []
         for action, elem in events:
@@ -212,13 +213,13 @@ class ResponseParser:
                     conditions = options.get("conditions") or {}
                     # include operator and system
                     c = elem.exec_if
-                    c = c.format(**conditions)
-                    if eval(c, conditions):
+                    c = ResponseParser.unescape_response(c)
+                    if c is None or eval(c, conditions):
                         c = {
-                            'title': elem.title,
-                            'purpose': elem.purpose,
-                            'command': elem.command,
-                            'shell': elem.shell
+                            'title': ResponseParser.unescape_response(elem.title),
+                            'purpose': ResponseParser.unescape_response(elem.purpose),
+                            'command': ResponseParser.unescape_response(elem.command),
+                            'shell': ResponseParser.unescape_response(elem.shell)
                         }
                         commands.append(c)
                     else:
@@ -226,11 +227,41 @@ class ResponseParser:
         return commands
 
     @staticmethod
+    def escape_response(response: str) -> str:
+        response = response.replace("<", ":_smah_lt_:")
+        response = response.replace("&amp;", ":_smah_amp_amp_:")
+        response = response.replace("&", ":_smah_amp_:")
+        response = response.replace(":_smah_lt_:cot", "<cot")
+        response = response.replace(":_smah_lt_:/cot", "</cot")
+        response = response.replace(":_smah_lt_:exec", "<exec")
+        response = response.replace(":_smah_lt_:/exec", "</exec")
+        response = response.replace(":_smah_lt_:prompt", "<prompt")
+        response = response.replace(":_smah_lt_:/prompt", "</prompt")
+        response = response.replace(":_smah_lt_:title", "<title")
+        response = response.replace(":_smah_lt_:/title", "</title")
+        response = response.replace(":_smah_lt_:command", "<command")
+        response = response.replace(":_smah_lt_:/command", "</command")
+        return response
+
+    @staticmethod
+    def unescape_response(response: Optional[str]) -> Optional[str]:
+        if response is None:
+            return None
+        response = response.replace(":_smah_lt_:", "<")
+        response = response.replace(":_smah_amp_amp_:", "&amp;")
+        response = response.replace(":_smah_amp_:", "&")
+
+        return response
+
+    @staticmethod
     def to_markdown(response: str, options: Optional[dict] = None) -> str:
         options = options or {}
-        parser = etree.XMLPullParser()
+        parser = etree.XMLPullParser(recover=True, encoding="utf-8")
         parser.set_element_class_lookup(SmahLookup())
         events = parser.read_events()
+        response = ResponseParser.escape_response(response)
+
+
 
         parser.feed("<smah-msg>" + response + "</smah-msg>")
         for action, elem in events:
@@ -244,6 +275,9 @@ class ResponseParser:
 
         root = parser.close()
         response = etree.tostring(root, pretty_print=True).decode()
+        response = ResponseParser.unescape_response(response)
+
+
         return response[len("<smah-msg>"):-(len("</smah-msg>") + 1)]
 
 

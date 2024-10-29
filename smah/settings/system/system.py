@@ -1,3 +1,4 @@
+import os
 import textwrap
 from typing import Optional
 from .stats import CpuStats, MemoryStats, DiskStats
@@ -51,6 +52,8 @@ class System:
             config_data (dict): Configuration data for the system.
         """
         config_data = config_data or {}
+
+        self.shell: str = os.getenv('SHELL', 'bash')
         self.disk: DiskStats = DiskStats()
         self.cpu: CpuStats = CpuStats()
         self.memory: MemoryStats = MemoryStats()
@@ -79,6 +82,7 @@ class System:
         if options.get("stats"):
             return {
                 "vsn": self.config_vsn(),
+                "shell": self.shell,
                 "operating_system": self.operating_system.to_yaml(options=options) if self.operating_system else None,
                 "cpu": self.cpu.readings(),
                 "memory": self.cpu.readings(),
@@ -87,6 +91,7 @@ class System:
         else:
             return {
                 "vsn": self.config_vsn(),
+                "shell": self.shell,
                 "operating_system": self.operating_system.to_yaml(options=options) if self.operating_system else None,
             }
 
@@ -97,19 +102,28 @@ class System:
         if options.get("stats"):
             template = textwrap.dedent(
                 """
+                **Shell:**
+                
+                {shell}
+                
                 **Operating System:**
+                
                 {operating_system}
                 
                 **Cpu:**
+                
                 {cpu}
                 
                 **Memory:**
+                
                 {memory}
                 
                 **Disk:**
+                
                 {disk}
                 """
             ).strip().format(
+                shell=self.shell,
                 operating_system=o,
                 cpu=self.cpu.show(options=options) if self.cpu else None,
                 memory=self.memory.show(options=options) if self.memory else None,
@@ -118,10 +132,16 @@ class System:
         else:
             template = textwrap.dedent(
                 """
+                **Shell:**
+                
+                {shell}
+                
                 **Operating System:**
+                
                 {operating_system}
                 """
             ).strip().format(
+                shell=self.shell,
                 operating_system=o
             )
         return template

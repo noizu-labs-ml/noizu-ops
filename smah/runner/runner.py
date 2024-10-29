@@ -1,5 +1,6 @@
 import json
 import logging
+import subprocess
 import textwrap
 
 import rich.box
@@ -196,11 +197,49 @@ class Runner:
 
             # Query with Instructions
             thread.append(Prompts.query_prompt(request=query))
-            response = self.run(model, thread, tools=[Prompts.run_command_tool()])
+            response = self.run(model, thread)
 
             # Response
             message = Prompts.message(role=response.choices[0].message.role, content=response.choices[0].message.content)
             self.print_message(message, format=self.args.rich)
+
+            # Extract Commands
+            commands = ResponseParser.extract_commands(response.choices[0].message.content) or []
+            for command in commands:
+                std_console.print(
+                    Panel(
+                        Markdown(
+                            textwrap.dedent(
+                                """
+                                `RUNNING SHELL COMMANDS MAY BE DANGEROUS: BE CAREFUL`
+                                
+                                title: 
+                                {title}
+                                
+                                purpose: 
+                                {purpose}
+    
+                                ```{shell} 
+                                {command} 
+                                ```                       
+                                """
+                            ).format(
+                                title=command['title'],
+                                purpose=command['purpose'],
+                                command=command['command'],
+                                shell=command['shell']
+                            ),
+                            style="white"
+                        ),
+                        title="EXEC COMMAND",
+                        style="bold red",
+                        box=rich.box.ROUNDED
+                    )
+                )
+                c = Confirm.ask("[bold green]execute?[/bold green]")
+                if c:
+                    # This is dangerous
+                    subprocess.run(command['command'], shell=True)
 
             # Update Chat History
             self.db.append_to_chat(id, [query_message, message])
@@ -334,6 +373,9 @@ class Runner:
                 {instructions}
                 """).format(request=query, instructions=p["instructions"])
             model = self.settings.inference.models[p["model"]]
+
+            self.print_message(Prompts.message(content=request), format=self.args.rich)
+
             response = self.run(
                 model=model,
                 thread=[
@@ -342,28 +384,52 @@ class Runner:
                     Prompts.system_settings(self.settings, include_system=p["include_settings"]),
                     Prompts.ack(),
                     Prompts.query_prompt(request=request)
-                ],
-                tools=[Prompts.run_command_tool()]
+                ]
             )
+
+
             msg = {'role': 'assistant', 'content': response.choices[0].message.content}
             self.print_message(msg, format=self.args.rich)
-            commands = ResponseParser.extract_commands(response.choices[0].message.content)
+
+            # Extract Commands
+            commands = ResponseParser.extract_commands(response.choices[0].message.content) or []
             for command in commands:
                 std_console.print(
-                    textwrap.dedent(
-                        """
-                        title: {title}
-                        purpose: {purpose}
-                        command: 
-                        {command}                        
-                        """
-                    ).format(
-                        title=command['title'],
-                        purpose=command['purpose'],
-                        command=command['command']
+                    Panel(
+                        Markdown(
+                            textwrap.dedent(
+                                """
+                                `RUNNING SHELL COMMANDS MAY BE DANGEROUS: BE CAREFUL`
+                                
+                                title: 
+                                {title}
+
+                                purpose: 
+                                {purpose}
+
+                                ```{shell} 
+                                {command} 
+                                ```                       
+                                """
+                            ).format(
+                                title=command['title'],
+                                purpose=command['purpose'],
+                                command=command['command'],
+                                shell=command['shell']
+                            ),
+                            style="white"
+                        ),
+                        title="EXEC COMMAND",
+                        style="bold red",
+                        box=rich.box.ROUNDED
                     )
                 )
-                Confirm.ask("execute?")
+                c = Confirm.ask("[bold green]execute?[/bold green]")
+                if c:
+                    # This is dangerous
+                    subprocess.run(command['command'], shell=True)
+
+
 
             self.db.save_chat(
                 p["title"],

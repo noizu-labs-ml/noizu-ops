@@ -1,7 +1,16 @@
-from rich.console import Console
+from xml.etree.ElementTree import Element
+
+from rich.console import Console, RenderResult, JustifyMethod, ConsoleOptions
 import textwrap
+
+from rich.markdown import Markdown
+from rich.markdown import MarkdownElement
 from rich.prompt import Prompt, Confirm
-from typing import Optional
+from typing import Optional, Union
+
+from rich.segment import Segment
+from rich.style import Style
+
 # Initialize standard console for general output
 std_console: Console = Console(width=100, legacy_windows=False)
 

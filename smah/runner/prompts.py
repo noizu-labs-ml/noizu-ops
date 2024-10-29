@@ -368,6 +368,20 @@ class Prompts:
             [...| further planning statements]
             ```
             ````
+            
+            ## User Executable Commands
+            in your output if providing commands for user to run wrap those commands in a exec tag. Do not wrap in a shell code fence.
+            
+            ```example            
+            <exec shell="zsh">
+            <title>Save Hello World to tmp file</title>
+            <purpose>Save Hello World to tmp</purpose>
+            <command>
+            echo "Hello World" &gt; ./tmp
+            </command>
+            </exec>
+            ```
+        
 
             ## Closing Remarks
             Your output should be heavily interspersed with thinking comments and your output should adjust based on observations made in those thought comments.
