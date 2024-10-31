@@ -53,12 +53,24 @@ or
 Analyze Access Log Entries
 
 ```sh
-tail -n 500 /var/log/auth.log | smah -q "Analyze these access log entries and output a tab-delimited list of top offending IPs, number of events, and a general statement why they are considered malicious/bad actors."
+tail -n 500 /var/log/auth.log | smah -q "Analyze these access log entries and output a markdown summary with tables of suspicious ips and events."  
 ```
+![image](https://github.com/user-attachments/assets/445c0004-84db-46a9-b654-bb3c3692e73b)
+
+
+### System Control Summary
+```
+systemctl status | smah -i ~/SCAN-SYSTEMCTL.md
+```
+![image](https://github.com/user-attachments/assets/0304e06c-bb6f-4a2c-894d-f672225b1b83)
+
+
+
 ### System Task
 ```sh
 smah -q "How do I setup a web proxy on this server that I can connect to via my remote desktop to access the web?"
  ```
+![image](https://github.com/user-attachments/assets/b712fbd7-7e2b-4e1f-9320-71c48fe90e58)
 
 ### Resume last chat 
 
@@ -71,6 +83,9 @@ smah --continue
 ```sh
 smah --history
 ```
+![image](https://github.com/user-attachments/assets/6da1841e-5014-468b-b933-6b215853c80e)
+
+
 
 ### Resume by id.
 
