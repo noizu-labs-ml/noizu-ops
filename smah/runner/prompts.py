@@ -421,7 +421,7 @@ class Prompts:
             I hope that helps!
             ```
             
-            NOTE: the code fences in the two examples are to indicate isolate the examble blocks. You should not fence  your entire response unless prompted to.
+            DO NOT WRAP YOUR RESPONSE TO THE PIPE OUTPUT IN A CODE FENCE
             ---
             When you are ready, reply ack.
             """)
