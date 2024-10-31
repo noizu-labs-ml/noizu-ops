@@ -482,8 +482,10 @@ class Runner:
                 ]
             )
             response_body = response.choices[0].message.content
-            response_body = Markdown(response_body) if p["format_output"] else response_body
-            std_console.print(response_body)
+            if p["format_output"] and self.args.rich:
+                std_console.print(Markdown(response_body))
+            else:
+                print(response_body)
 
             request = textwrap.dedent(
                 """\

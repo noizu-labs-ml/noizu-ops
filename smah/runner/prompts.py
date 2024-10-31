@@ -373,12 +373,12 @@ class Prompts:
             ## User Executable Commands
             in your output if providing commands for user to run wrap those commands in a exec tag. Do not wrap in a shell code fence.
             
-            ```example            
+            ```example
             <exec shell="zsh">
             <title>Save Hello World to tmp file</title>
             <purpose>Save Hello World to tmp</purpose>
             <command>
-            echo "Hello World" &gt; ./tmp
+            echo "Hello World" > ./tmp
             </command>
             </exec>
             ```
@@ -420,9 +420,9 @@ class Prompts:
 
             I hope that helps!
             ```
-            ---
-            Do not wrap your response in a code fence unless requested.
             
+            NOTE: the code fences in the two examples are to indicate isolate the examble blocks. You should not fence  your entire response unless prompted to.
+            ---
             When you are ready, reply ack.
             """)
         return Prompts.message(content=prompt)

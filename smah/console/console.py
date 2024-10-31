@@ -12,11 +12,10 @@ from rich.segment import Segment
 from rich.style import Style
 
 # Initialize standard console for general output
-std_console: Console = Console(width=100, legacy_windows=False)
+std_console: Console = Console(legacy_windows=False)
 
 # Initialize error console for error output
-err_console: Console = Console(width=100, legacy_windows=False, stderr=True)
-
+err_console: Console = Console(legacy_windows=False, stderr=True)
 
 def prompt_string(
         field: str,

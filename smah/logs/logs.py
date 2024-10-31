@@ -47,11 +47,11 @@ def configure(
         level=log_level,
         format='%(asctime)s [%(levelname)s] %(pathname)s:%(lineno)d %(message)s',
         handlers=[
-            RotatingFileHandler(
-                log_file,
-                maxBytes=max_bytes,
-                backupCount=backup_count
-            ),
+                RotatingFileHandler(
+                    log_file,
+                    maxBytes=max_bytes,
+                    backupCount=backup_count
+                ),
             logging.StreamHandler(console_out)
         ]
     )
